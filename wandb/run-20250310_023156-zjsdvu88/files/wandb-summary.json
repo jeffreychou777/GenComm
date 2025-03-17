@@ -1,1 +1,0 @@
-{"depth_loss":0,"_wandb":{"runtime":125394},"_step":63769,"Dir_loss":0.007203121669590473,"Reg_loss":0.10836376820064615,"_runtime":125354.33399751,"epoch":19,"Conf_loss":0.22682842884702,"val_loss_epoch":0.48734939098358154,"_timestamp":1.7416992709208567e+09,"Iou_loss":0,"train_loss":0.3724928129479584,"train_loss_iter":0.3423953056335449}

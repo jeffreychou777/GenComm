@@ -1,1 +1,0 @@
-{"_runtime":3728.120876129,"_wandb":{"runtime":5083},"Reg_loss":0.22225050850310024,"train_loss_iter":0.36608174443244934,"epoch":4,"val_loss_epoch":0.9750384092330933,"Dir_loss":0.003215955337509513,"depth_loss":0,"Iou_loss":0,"Gen_loss":0.020140741020441055,"train_loss":0.7094110219045119,"_step":5509,"Conf_loss":0.12047455125681028,"_timestamp":1.7417882090945284e+09}
