@@ -150,6 +150,41 @@ class AttFusion(nn.Module):
         out = torch.stack(out)
         return out
 
+class ParaAttFusion(nn.Module):
+    def __init__(self, feature_dims):
+        super(ParaAttFusion, self).__init__()
+        self.att = ScaledDotProductAttention(feature_dims)
+        self.q_proj = nn.Conv2d(feature_dims, feature_dims, kernel_size=1, stride=1, padding=0)
+        self.k_proj = nn.Conv2d(feature_dims, feature_dims, kernel_size=1, stride=1, padding=0)
+        self.v_proj = nn.Conv2d(feature_dims, feature_dims, kernel_size=1, stride=1, padding=0)
+        self.out_proj = nn.Conv2d(feature_dims, feature_dims, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, xx, record_len, affine_matrix):
+        _, C, H, W = xx.shape
+        B, L = affine_matrix.shape[:2]
+        split_x = regroup(xx, record_len)
+        batch_node_features = split_x
+        out = []
+        # iterate each batch
+        for b in range(B):
+            N = record_len[b]
+            t_matrix = affine_matrix[b][:N, :N, :, :]
+            # update each node i
+            i = 0 # ego
+            x = warp_affine_simple(batch_node_features[b], t_matrix[i, :, :, :], (H, W))
+            cav_num = x.shape[0]
+            x = x.view(cav_num, C, -1).permute(2, 0, 1) #  (H*W, cav_num, C), perform self attention on each pixel.
+            q = self.q_proj(x)
+            k = self.k_proj(x)
+            v = self.v_proj(x)
+            h = self.att(q, k, v)
+            h = h.permute(1, 2, 0).view(cav_num, C, H, W)[0, ...] # C, W, H before
+            h = self.out_proj(h)
+            out.append(h)
+
+        out = torch.stack(out)
+        return out
+
 class DiscoFusion(nn.Module):
     def __init__(self, feature_dims):
         super(DiscoFusion, self).__init__()

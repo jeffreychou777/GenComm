@@ -1,7 +1,7 @@
 name: m1_diffcomm 
-root_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/train"
-validate_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/validate"
-test_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/test"
+root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
+validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
+test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
 
 verify_mode: True
 
@@ -127,11 +127,11 @@ model:
         padding: [ 1 ]
         dim: [ 128 ]
         input_dim: 384 # 128 * 3
+    message_extractor: cls_head
 
 
-    fusion_method: att
-    att:
-      feat_dim: 128
+    fusion_method: where2comm
+    where2comm: 128
 
     in_head: 128
     anchor_number: *anchor_num

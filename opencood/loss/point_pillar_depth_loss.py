@@ -59,7 +59,7 @@ class PointPillarDepthLoss(PointPillarLoss):
         return total_loss
 
 
-    def logging(self, epoch, batch_id, batch_len, writer = None, suffix=""):
+    def logging(self, epoch, batch_id, batch_len, writer = None, suffix="", iter=None):
         """
         Print out  the loss function for current iteration.
 
@@ -98,7 +98,8 @@ class PointPillarDepthLoss(PointPillarLoss):
                             epoch*batch_len + batch_id)
             writer.add_scalar('Depth_loss' + suffix, depth_loss,
                             epoch*batch_len + batch_id)
-        wandb.log({"epoch": epoch, "train_loss_iter": total_loss, "Conf_loss": cls_loss, "Reg_loss": reg_loss, "Dir_loss": dir_loss, "Iou_loss": iou_loss, "depth_loss": depth_loss})
+        wandb.log({"epoch": epoch, "train_loss_iter": total_loss, "Conf_loss": cls_loss, "Reg_loss": reg_loss, "Dir_loss": dir_loss, "Iou_loss": iou_loss, "depth_loss": depth_loss},
+                  step=iter)
 
 
 class FocalLoss(nn.Module):

@@ -454,7 +454,7 @@ if __name__ == '__main__':
     }
     
     # Create sample input tensors
-    batch_size = 2
+    batch_size = 1
     channels = 128
     height = 32
     width = 32

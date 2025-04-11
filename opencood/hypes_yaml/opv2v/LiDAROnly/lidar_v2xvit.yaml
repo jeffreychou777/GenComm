@@ -1,7 +1,7 @@
 name: HeterBaseline_opv2v_lidar_v2xvit
-root_dir: "dataset/OPV2V/train"
-validate_dir: "dataset/OPV2V/validate"
-test_dir: "dataset/OPV2V/test"
+root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
+validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
+test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
 
 yaml_parser: "load_general_params"
 train_params:
@@ -17,7 +17,7 @@ label_type: 'lidar'
 cav_lidar_range: &cav_lidar [-102.4, -102.4, -3, 102.4, 102.4, 1]
 
 heter:
-  assignment_path: "opencood/logs/heter_modality_assign/opv2v_4modality.json" 
+  assignment_path: "opencood/modality_assign/opv2v_4modality.json" 
   ego_modality: &ego_modality "m1"
   mapping_dict:
     m1: m1

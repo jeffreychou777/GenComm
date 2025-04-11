@@ -217,7 +217,7 @@ if __name__=="__main__":
 
     MP_NUM = 8
 
-    split_folders = [f"/GPFS/rhome/yifanlu/workspace/OpenCOODv2/dataset/OPV2V/{split}" for split in ['train', 'validate', 'test']]
+    split_folders = [f"/home/junfei.zhou/DATACENTER3/dataset/OPV2V/{split}" for split in ['train', 'validate', 'test']]
     scenario_folders = []
     print(split_folders)
 

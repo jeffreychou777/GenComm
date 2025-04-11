@@ -1,7 +1,7 @@
 name: HEAL_baseline_Attfuse_m1m3
-root_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/train"
-validate_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/validate"
-test_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/test"
+root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
+validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
+test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
 
 # yaml_parser: "load_general_params"
 # train_params:

@@ -125,6 +125,7 @@ def main():
     supervise_single_flag = False if not hasattr(opencood_train_dataset, "supervise_single") else opencood_train_dataset.supervise_single
     # used to help schedule learning rate
 
+    iter = 0
     for epoch in range(init_epoch, max(epoches, init_epoch)):
         for param_group in optimizer.param_groups:
             print('learning rate %f' % param_group["lr"])
@@ -136,6 +137,7 @@ def main():
             print("No model_train_init function")
         train_ave_loss = []
         for i, batch_data in enumerate(train_loader):
+            iter += 1
             if batch_data is None or batch_data['ego']['object_bbx_mask'].sum()==0:
                 continue
             model.zero_grad()
@@ -147,7 +149,7 @@ def main():
             
             final_loss = criterion(ouput_dict, batch_data['ego']['label_dict'])
             train_ave_loss.append(final_loss.item())
-            criterion.logging(epoch, i, len(train_loader), writer)
+            criterion.logging(epoch, i, len(train_loader), writer, iter=iter)
 
             if supervise_single_flag:
                 final_loss += criterion(ouput_dict, batch_data['ego']['label_dict_single'], suffix="_single") * hypes['train_params'].get("single_weight", 1)
@@ -158,7 +160,7 @@ def main():
                 final_loss.backward()
             optimizer.step()
         train_ave_loss = statistics.mean(train_ave_loss)
-        wandb.log({"epoch": epoch, "train_loss": train_ave_loss,})
+        wandb.log({"epoch": epoch, "train_loss": train_ave_loss,}, step=iter)
 
             # torch.cuda.empty_cache()  # it will destroy memory buffer
 
@@ -191,7 +193,7 @@ def main():
             print('At epoch %d, the validation loss is %f' % (epoch,
                                                               valid_ave_loss))
             writer.add_scalar('Validate_Loss', valid_ave_loss, epoch)
-            wandb.log({"epoch": epoch, "val_loss_epoch": valid_ave_loss,})
+            wandb.log({"epoch": epoch, "val_loss_epoch": valid_ave_loss,}, step = iter)
 
             # lowest val loss
             if valid_ave_loss < lowest_val_loss:

@@ -31,7 +31,7 @@ def test_parser():
     parser.add_argument('--save_npy', action='store_true',
                         help='whether to save prediction and gt result'
                              'in npy file')
-    parser.add_argument('--range', type=str, default="102.4,102.4",
+    parser.add_argument('--range', type=str, default="102.4,51.2",
                         help="detection range is [-102.4, +102.4, -102.4, +102.4]")
     parser.add_argument('--no_score', action='store_true',
                         help="whether print the score of prediction")

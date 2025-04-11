@@ -3,9 +3,11 @@ import os
 import statistics
 import glob
 import torch
+from datetime import datetime
 from torch.utils.data import DataLoader, DistributedSampler
+import torch.distributed as dist
 from tensorboardX import SummaryWriter
-
+import wandb
 import opencood.hypes_yaml.yaml_utils as yaml_utils
 from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
@@ -31,11 +33,22 @@ def train_parser():
     return opt
 
 
+def init_wandb(hypes, current_time):
+    if dist.get_rank() == 0:
+
+        run_name = hypes['name'] + current_time.strftime("_%Y_%m_%d_%H_%M_%S")
+        wandb.init(project="DiffComm", name=run_name, config=hypes)
+
+        
+
 def main():
     opt = train_parser()
     hypes = yaml_utils.load_yaml(opt.hypes_yaml, opt)
     multi_gpu_utils.init_distributed_mode(opt)
-
+    
+    current_time = datetime.now()
+    init_wandb(hypes, current_time)
+    
     print('Dataset Building')
     opencood_train_dataset = build_dataset(hypes, visualize=False, train=True)
     opencood_validate_dataset = build_dataset(hypes,
@@ -92,7 +105,7 @@ def main():
         init_epoch = 0
         # if we train the model from scratch, we need to create a folder
         # to save the model,
-        saved_path = train_utils.setup_train(hypes)
+        saved_path = train_utils.setup_train(hypes, current_time)
 
     # we assume gpu is necessary
     if torch.cuda.is_available():
@@ -129,6 +142,7 @@ def main():
     supervise_single_flag = False if not hasattr(opencood_train_dataset, "supervise_single") else opencood_train_dataset.supervise_single
     # used to help schedule learning rate
 
+    iter = 0
     for epoch in range(init_epoch, max(epoches, init_epoch)):
         for param_group in optimizer.param_groups:
             print('learning rate %f' % param_group["lr"])
@@ -140,7 +154,9 @@ def main():
             model_without_ddp.model_train_init()
         except:
             print("No model_train_init function")
+        train_ave_loss = []
         for i, batch_data in enumerate(train_loader):
+            iter += 1
             if batch_data is None or batch_data['ego']['object_bbx_mask'].sum()==0:
                 continue
             model.zero_grad()
@@ -156,7 +172,9 @@ def main():
                     ouput_dict = model(batch_data['ego'])
                     final_loss = criterion(ouput_dict, batch_data['ego']['label_dict'])
 
-            criterion.logging(epoch, i, len(train_loader), writer)
+            train_ave_loss.append(final_loss.item())
+            if dist.get_rank() == 0:
+                criterion.logging(epoch, i, len(train_loader), writer, iter=iter)
 
             if supervise_single_flag:
                 if not opt.half:
@@ -164,7 +182,7 @@ def main():
                 else:
                     with torch.cuda.amp.autocast():
                         final_loss += criterion(ouput_dict, batch_data['ego']['label_dict_single'], suffix="_single") * hypes['train_params'].get("single_weight", 1)
-                criterion.logging(epoch, i, len(train_loader), writer, suffix="_single")
+                criterion.logging(epoch, i, len(train_loader), writer, suffix="_single", iter=iter)
 
             if not opt.half:
                 final_loss.backward()
@@ -173,6 +191,9 @@ def main():
                 scaler.scale(final_loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+        if dist.get_rank() == 0:
+            train_ave_loss = statistics.mean(train_ave_loss)
+            wandb.log({"epoch": epoch, "train_loss": train_ave_loss,}, step = iter)
 
 
         # torch.cuda.empty_cache() # it will destroy memory buffer
@@ -199,8 +220,10 @@ def main():
                     final_loss = criterion(ouput_dict,
                                            batch_data['ego']['label_dict'])
                     valid_ave_loss.append(final_loss.item())
-
+            
             valid_ave_loss = statistics.mean(valid_ave_loss)
+            if dist.get_rank() == 0:
+                wandb.log({"epoch": epoch, "val_loss_epoch": valid_ave_loss,}, step = iter)
             print('At epoch %d, the validation loss is %f' % (epoch,
                                                               valid_ave_loss))
             writer.add_scalar('Validate_Loss', valid_ave_loss, epoch)

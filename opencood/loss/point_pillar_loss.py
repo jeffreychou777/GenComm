@@ -10,6 +10,7 @@ import numpy as np
 from opencood.utils.common_utils import limit_period
 from opencood.data_utils.post_processor.voxel_postprocessor import VoxelPostprocessor
 from icecream import ic
+import wandb
 
 class PointPillarLoss(nn.Module):
     def __init__(self, args):
@@ -166,7 +167,7 @@ class PointPillarLoss(nn.Module):
 
 
 
-    def logging(self, epoch, batch_id, batch_len, writer = None, suffix=""):
+    def logging(self, epoch, batch_id, batch_len, writer = None, suffix="",iter=None):
         """
         Print out  the loss function for current iteration.
 
@@ -202,6 +203,12 @@ class PointPillarLoss(nn.Module):
                             epoch*batch_len + batch_id)
             writer.add_scalar('Iou_loss'+suffix, iou_loss,
                             epoch*batch_len + batch_id)
+        wandb.log({ 'Loss'+ suffix: total_loss,
+                    'Reg_loss'+suffix: reg_loss,
+                    'Conf_loss'+suffix: cls_loss,
+                    'Dir_loss'+suffix: dir_loss,
+                    'Iou_loss'+suffix: iou_loss,}, step=iter)
+
 
 def one_hot_f(tensor, num_bins, dim=-1, on_value=1.0, dtype=torch.float32):
     tensor_onehot = torch.zeros(*list(tensor.shape), num_bins, dtype=dtype, device=tensor.device) 

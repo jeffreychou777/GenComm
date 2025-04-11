@@ -1,29 +1,23 @@
-name: m1_wo_diffcomm
-root_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/train"
-validate_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/validate"
-test_dir: "/home/zjf/DATACENTER2/data/code/HEAL/opencood/dataset/OPV2V/test"
+name: m1_diffcomm_gmatch 
+root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/train"
+validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/validate"
+test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/test"
 
+verify_mode: False
 
 yaml_parser: "load_general_params"
-# train_params:
-#   batch_size: &batch_size 2
-#   epoches: 20
-#   eval_freq: 2
-#   save_freq: 2
-#   max_cav: 5
-
-verify_mode: True  # use small dataset to verify the correctness of the code
 train_params:
-  batch_size: &batch_size 1
-  epoches: 5
-  eval_freq: 1
-  save_freq: 1
+  batch_size: &batch_size 2
+  epoches: 20
+  eval_freq: 2
+  save_freq: 2
   max_cav: 5
 
 comm_range: 70
 input_source: ['lidar']
 label_type: 'lidar'
 cav_lidar_range: &cav_lidar [-102.4, -51.2, -3, 102.4, 51.2, 1]
+
 
 heter:
   assignment_path: "opencood/modality_assign/opv2v_4modality.json" 
@@ -50,7 +44,6 @@ heter:
         # lidar range for each individual cav.
         cav_lidar_range: *cav_lidar
 
-
 fusion:
   core_method: 'intermediateheter'
   dataset: 'opv2v'
@@ -59,15 +52,6 @@ fusion:
     grid_conf: None # place-holder
     data_aug_conf: None # place-holder
 
-data_augment: # no use in intermediate fusion
-  - NAME: random_world_flip
-    ALONG_AXIS_LIST: [ 'x' ]
-
-  - NAME: random_world_rotation
-    WORLD_ROT_ANGLE: [ -0.78539816, 0.78539816 ]
-
-  - NAME: random_world_scaling
-    WORLD_SCALE_RANGE: [ 0.95, 1.05 ]
 
 preprocess:
   # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
@@ -90,7 +74,7 @@ postprocess:
     w: 1.6
     h: 1.56
     r: &anchor_yaw [0, 90]
-    feature_stride: 2
+    feature_stride: 4
     num: &anchor_num 2
   target_args:
     pos_threshold: 0.6
@@ -106,11 +90,10 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline
+  core_method: heter_model_baseline_w_diffcomm
   args:
     ego_modality: *ego_modality
     lidar_range: *cav_lidar
-
     m1:
       core_method: *core_method_m1
       sensor_type: *sensor_type_m1
@@ -133,31 +116,55 @@ model:
         upsample_strides: [1, 2, 4]
         num_upsample_filter: [128, 128, 128]
   
+      aligner_args:
+        core_method: identity
+      
       shrink_header: 
         kernal_size: [ 3 ]
-        stride: [ 1 ]
+        stride: [ 2 ]
         padding: [ 1 ]
-        dim: [ 128 ]
+        dim: [ 64 ]
         input_dim: 384 # 128 * 3
-
-    fusion_method: att 
-    att:
-      feat_dim: 128
-
-    in_head: 128
+    gmatch: True
+    enhancer: enhancev12          # 'enhance', 'enhanceV1', ...
+    message_extractor: message_extractorv2
     
+    fusion_method: att
+    att:
+      feat_dim: 64
+
+    in_head: 64
     anchor_number: *anchor_num
     dir_args: *dir_args
 
+    diffcomm:
+      # load_extractor: '/home/zjf/DATACENTER2/data/code/DiffComm/opencood/logs/verify_2025_03_02_12_24_34/net_epoch_bestval_at5.pth'
+      model:
+        embed_dim: 130
+        in_channels: 64
+        out_ch: 64
+        ch: 8
+        ch_mult: [1, 1]
+        num_res_blocks: 2
+        attn_resolutions: [16]
+        dropout: 0.0
+        resamp_with_conv: True
+      diffusion:
+        beta_schedule: linear
+        beta_start: 0.0005
+        beta_end: 0.02
+        num_diffusion_timesteps: 3
+
+
 loss:
-  core_method: point_pillar_depth_loss
+  core_method: point_pillar_gmatch_loss
   args:
     pos_cls_weight: 2.0
     cls:
       type: 'SigmoidFocalLoss'
       alpha: 0.25
       gamma: 2.0
-      weight: 2.0
+      weight: 2.0  #2025.3.8  : 1.0 -> 2.0 jeffrey
     reg:
       type: 'WeightedSmoothL1Loss'
       sigma: 3.0
@@ -169,6 +176,8 @@ loss:
       args: *dir_args
     depth:
       weight: 1.0
+    generate_weight: 1
+    gmatch_weight: 1
 
 optimizer:
   core_method: Adam
@@ -180,6 +189,5 @@ optimizer:
 lr_scheduler:
   core_method: multistep #step, multistep and Exponential support
   gamma: 0.1
-  # step_size: [10, 15]
-  step_size: [3]
+  step_size: [10, 15]
 

@@ -1,10 +1,10 @@
 import sys
 import runpy
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-os.chdir('/home/zjf/DATACENTER2/data/code/HEAL')
+os.chdir('/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
 # args = 'python -m lilab.multiview_scripts_new.s2_matpkl2ballpkl /mnt/liying.cibr.ac.cn_Data_Temp/multiview-large/TPH2KOxWT/2022-06-16ball.matpkl --time 1 9 17 23 27'
 # args = 'python -m lilab.metric_seg.s3_cocopkl_vs_cocopkl --gt_pkls /home/liying_lab/chenxinfeng/DATA/CBNetV2/data/rats_metric/te1/intense_pannel.cocopkl --pred_pkls /home/liying_lab/chenxinfeng/DATA/CBNetV2/data/rats_metric/te2/intense_pannel.cocopkl '
 
@@ -34,8 +34,43 @@ m1m3_diffcomm_infer = 'python opencood/tools/inference.py --model_dir /home/zjf/
 
 m1m3_infer = 'python opencood/tools/inference.py --model_dir /home/zjf/DATACENTER2/data/code/HEAL/opencood/logs/DiffComm_m1_based/infer/m1m3_wo_diffcomm_train_infer'
 
-args = heal_diffcomm_m3_alignto_m1
+gmatch = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/grad_match/m1_diffcomm_gmatch.yaml'
+gmatch_v2xvit = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/grad_match/m1_diffcomm_gmatch_v2xvit.yaml'
 
+message_extract = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/message_extractor/m1_diffcomm_mess_extract.yaml'
+
+v2xvit = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/LiDAROnly/lidar_v2xvit.yaml'
+m1_diffcomm_v2xvit = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/verify_v2xvit/m1_diffcomm.yaml'
+
+vis_cls_head = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_2025_03_25_07_47_43'
+vis_conv2d = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_mess_extrac_2025_03_26_01_23_11'
+
+infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_27_12_01_36'
+enhance = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/message_extractor/m1_diffcomm_enhance.yaml'
+
+m1_diffcomm_halfmap = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/verify_att/m1_diffcomm.yaml'
+half_range_infer = 'python opencood/tools/inference.py \
+    --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_gmatch_2025_03_28_15_22_09 \
+    --range 102.4,51.2'
+
+m1_diffcomm_ehance_woms = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/message_extractor/m1_diffcomm_enhance_woms.yaml'
+
+angle_bias_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_04_03_03_14_44 --range 102.4,51.2'
+distance_bias_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_04_03_23_58_06 --range 102.4,51.2'
+
+m1_diffcomm_diffusion = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/diffusion/m1_diffcomm_diffusion.yaml'
+m1_diffcomm_diffusion_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_diffusion_2025_04_05_04_55_04'
+
+m2_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m2_diffcomm_2025_04_06_04_17_22 --range 51.2,51.2'
+
+diffcomm_m1based_m2_alignto_m1 = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stage2/m2_alignto_m1'
+heal_diffcomm_m2_alignto_m1 = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HEAL_m1_based/stage2/m2_alignto_m1'
+diffcomm_m2_alignto_m1_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stage2/m2_alignto_m1'
+
+args = message_extract
+
+
+# args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 
 # args = 'python opencood/tools/train.py -y /home/zjf/DATACENTER2/data/code/HEAL/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/verify/m1_diffcomm.yaml'
 

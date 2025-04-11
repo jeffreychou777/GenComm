@@ -101,7 +101,7 @@ class PointPillarDiffcommLoss(PointPillarDepthLoss):
 
 
 
-    def logging(self, epoch, batch_id, batch_len, writer = None, suffix=""):
+    def logging(self, epoch, batch_id, batch_len, writer = None, suffix="", iter=None):
         """
         Print out  the loss function for current iteration.
 
@@ -148,7 +148,7 @@ class PointPillarDiffcommLoss(PointPillarDepthLoss):
                     'Dir_loss'+suffix: dir_loss,
                     'Iou_loss'+suffix: iou_loss,
                     'depth_loss'+suffix: depth_loss,
-                    'Gen_loss'+suffix: gen_loss})
+                    'Gen_loss'+suffix: gen_loss}, step=iter)
 
 def one_hot_f(tensor, num_bins, dim=-1, on_value=1.0, dtype=torch.float32):
     tensor_onehot = torch.zeros(*list(tensor.shape), num_bins, dtype=dtype, device=tensor.device) 

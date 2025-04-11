@@ -19,10 +19,13 @@ from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.fuse_modules.fusion_in_one import MaxFusion, AttFusion, DiscoFusion, V2VNetFusion, V2XViTFusion, CoBEVT, Where2commFusion, Who2comFusion
 from opencood.models.diffcomm_modules.cond_diff import DiffComm
+from opencood.models.diffcomm_modules.enhance_v12 import Enhancerv12
+from opencood.models.diffcomm_modules.message_extractor_v2 import MessageExtractorv2
 from opencood.utils.transformation_utils import normalize_pairwise_tfm
 from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
 import importlib
 import torchvision
+from opencood.visualization.vis_bevfeat import vis_bev
 
 class HeterModelBaselineWDiffCommStage2(nn.Module):
     def __init__(self, args):
@@ -81,8 +84,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             """
             message_extractor building
             """
-            setattr(self, f"message_extractor_{modality_name}", nn.Conv2d(args['in_head'], args['anchor_number'],
-                                  kernel_size=1))
+            setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
             
             if args.get("fix_encoder", False):
                 self.fix_modules += [f"encoder_{modality_name}", f"backbone_{modality_name}"]
@@ -101,6 +103,9 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         self.H = (self.cav_range[4] - self.cav_range[1])
         self.W = (self.cav_range[3] - self.cav_range[0])
         self.fake_voxel_size = 1
+        self.gmatch = False
+        if 'gmatch' in args and args['gmatch']:
+            self.gmatch = True
 
         self.supervise_single = False
         if args.get("supervise_single", False):
@@ -135,6 +140,9 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             self.shrink_flag = True
             self.shrink_conv = DownsampleConv(args['shrink_header'])
 
+        self.enhancer = Enhancerv12(128, [8, 8], 4)
+        self.fix_modules += ["enhancer"]
+
         """
         Shared Heads
         """
@@ -151,17 +159,30 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             self.compress = True
             self.compressor = NaiveCompressor(args['compressor']['input_dim'],
                                               args['compressor']['compress_ratio'])
-            self.model_train_init()
-        self.model_train_init()
+            self.model_train_init_compressor()
+        if 'extractor_align' in args and args['extractor_align']:
+            self.model_train_init_stage2()
+
         # check again which module is not fixed.
         check_trainable_module(self)
 
-    def model_train_init(self):
+    def model_train_init_stage2(self):
         
         for module in self.fix_modules:
             for p in eval(f"self.{module}").parameters():
                 p.requires_grad_(False)
             eval(f"self.{module}").apply(fix_bn)
+    
+    def model_train_init_compressor(self):
+        if self.compress:
+            # freeze all
+            self.eval()
+            for p in self.parameters():
+                p.requires_grad_(False)
+            # unfreeze compressor
+            self.compressor.train()
+            for p in self.compressor.parameters():
+                p.requires_grad_(True)
 
     def forward(self, data_dict):
         output_dict = {}
@@ -240,31 +261,99 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
 
         we omit self.backbone's first layer.
         """
-        gt_feature = heter_feature_2d
-        conditions = heter_message
+        # gt_feature = heter_feature_2d
+        # conditions = heter_message
 
-        gen_data_dict = self.diffcomm(heter_feature_2d, conditions, record_len)
+        # gen_data_dict = self.diffcomm(heter_feature_2d, conditions, record_len)
+        
+        # # note = 'm2_alignto_m1_'
+        # # vis_bev(conditions[0].squeeze(0).detach().cpu().numpy(), type=note + 'ego_condi')
+        # # vis_bev(conditions[1].squeeze(0).detach().cpu().numpy(), type=note + 'cav_condi')
+        # # vis_bev(gt_feature[0].detach().cpu().numpy(), type='ego')
+        # # vis_bev(gen_data_dict['t1'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t1')
+        # # vis_bev(gen_data_dict['t2'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t2')
+        # # vis_bev(gt_feature[1].detach().cpu().numpy(), type='cav')
+        # # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
+        # # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
+        
+        # heter_feature_2d = gen_data_dict['pred_feature']
+        # pred_feature = heter_feature_2d
+        
+        # if len(heter_feature_2d.shape) == 3:
+
+        #     heter_feature_2d = heter_feature_2d.unsqueeze(0) ## for the case of bs=1 and only ego
+            
+        # if hasattr(self, 'enhancer'):
+        #     heter_feature_2d = self.enhancer(heter_feature_2d, affine_matrix, record_len)
+        
+        # fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
+
+        # if self.shrink_flag:
+        #     fused_feature = self.shrink_conv(fused_feature)
+
+        # cls_preds = self.cls_head(fused_feature)
+        # reg_preds = self.reg_head(fused_feature)
+        # dir_preds = self.dir_head(fused_feature)
+
+        # output_dict.update({'cls_preds': cls_preds,
+        #                     'reg_preds': reg_preds,
+        #                     'dir_preds': dir_preds,
+        #                     'gt_feature': gt_feature,
+        #                     'pred_feature': pred_feature})
+
+        # return output_dict
+        
+        gt_feature = heter_feature_2d
+        gen_data_dict = self.diffcomm(heter_feature_2d, heter_message, record_len)
+        output_dict.update({'gt_feature': gt_feature,
+                            'pred_feature': gen_data_dict['pred_feature']})
+        
+        note = 'm2_'
+        # vis_bev(conditions[0].squeeze(0).detach().cpu().numpy(), type=note + 'ego_condi')
+        # vis_bev(conditions[1].squeeze(0).detach().cpu().numpy(), type=note + 'cav_condi')
+        # vis_bev(gt_feature[0].detach().cpu().numpy(), type='ego')
+        # vis_bev(gen_data_dict['t1'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t1')
+        # vis_bev(gen_data_dict['t2'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t2')
+        # vis_bev(gt_feature[1].detach().cpu().numpy(), type='cav')
+        # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
+        # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
         
         heter_feature_2d = gen_data_dict['pred_feature']
-        pred_feature = heter_feature_2d
-        
+ 
         if len(heter_feature_2d.shape) == 3:
-
             heter_feature_2d = heter_feature_2d.unsqueeze(0) ## for the case of bs=1 and only ego
+        
+        if hasattr(self, 'enhancer'):
+            heter_feature_2d = self.enhancer(heter_feature_2d, affine_matrix, record_len)
+            if self.gmatch:
+                gt_feature = self.enhancer(gt_feature, affine_matrix, record_len)
             
         fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
+        if self.gmatch:
+            fused_feature_T = self.fusion_net(gt_feature, record_len, affine_matrix)
 
         if self.shrink_flag:
             fused_feature = self.shrink_conv(fused_feature)
+            if self.gmatch:
+                fused_feature_T = self.shrink_conv(fused_feature_T)
 
         cls_preds = self.cls_head(fused_feature)
         reg_preds = self.reg_head(fused_feature)
         dir_preds = self.dir_head(fused_feature)
+        if self.gmatch:
+            cls_preds_T = self.cls_head(fused_feature_T)
+            reg_preds_T = self.reg_head(fused_feature_T)
+            dir_preds_T = self.dir_head(fused_feature_T)
+            output_dict.update({'cls_preds_T': cls_preds_T,
+                                'reg_preds_T': reg_preds_T,
+                                'dir_preds_T': dir_preds_T,
+                                'cls_preds_S': cls_preds,
+                                'reg_preds_S': reg_preds,
+                                'dir_preds_S': dir_preds})
 
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
                             'dir_preds': dir_preds,
-                            'gt_feature': gt_feature,
-                            'pred_feature': pred_feature})
+                            'message': heter_message})
 
         return output_dict
