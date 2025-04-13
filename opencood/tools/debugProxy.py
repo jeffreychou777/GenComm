@@ -1,7 +1,7 @@
 import sys
 import runpy
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 os.chdir('/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
@@ -67,12 +67,14 @@ diffcomm_m1based_m2_alignto_m1 = 'python opencood/tools/train.py -y None --model
 heal_diffcomm_m2_alignto_m1 = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HEAL_m1_based/stage2/m2_alignto_m1'
 diffcomm_m2_alignto_m1_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stage2/m2_alignto_m1'
 
-args = message_extract
+m1_att_diffcomm = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/single_w_diffcomm/m1_att_diffcomm.yaml'
+m3_att_diffcomm = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/single/m3_att.yaml'
+args = m1_att_diffcomm
 
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 
-# args = 'python opencood/tools/train.py -y /home/zjf/DATACENTER2/data/code/HEAL/opencood/hypes_yaml/opv2v/MoreModality/Diffcomm/verify/m1_diffcomm.yaml'
+args = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/verify/m1_att_diffcomm_dropout.yaml'
 
 # args = 'python test.py 5 7'
 args = args.split()

@@ -157,7 +157,7 @@ def main():
             gradients_T = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
             grad_match_loss = sum(F.mse_loss(gradients_S[name], gradients_T[name]) for name in gradients_S)
             
-            final_loss = loss_S + 0.1 * grad_match_loss + hypes['loss']['args']['generate_weight'] * gen_loss
+            final_loss = loss_S + grad_match_loss + hypes['loss']['args']['generate_weight'] * gen_loss
             wandb.log({ 'train_loss_iter': final_loss,
                         'grad_match_loss': grad_match_loss,}, step=iter)
             

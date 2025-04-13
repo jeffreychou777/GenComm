@@ -46,9 +46,9 @@ import torchvision
 from opencood.visualization.simple_vis import visualize
 from opencood.visualization.vis_bevfeat import vis_bev
 
-class HeterModelBaselineWDiffComm(nn.Module):
+class HeterModelBaselineWDiffCommArchive(nn.Module):
     def __init__(self, args):
-        super(HeterModelBaselineWDiffComm, self).__init__()
+        super(HeterModelBaselineWDiffCommArchive, self).__init__()
         self.args = args
         
         self.diffcomm = DiffComm(args['diffcomm'])
@@ -161,7 +161,7 @@ class HeterModelBaselineWDiffComm(nn.Module):
             self.message_extractor = MessageExtractor(128, 2)
             print('message_extractor: message_extractor')
         if 'message_extractor' in args and args['message_extractor'] == 'message_extractorv2':
-            self.message_extractor = MessageExtractorv2(64, 2)
+            self.message_extractor = MessageExtractorv2(128, 2)
             print('message_extractor: message_extractorv2')
         if 'message_extractor' in args and args['message_extractor'] == 'conv2d':
             self.message_extractor = nn.Conv2d(128, 2, kernel_size=1, padding=0)
@@ -203,7 +203,7 @@ class HeterModelBaselineWDiffComm(nn.Module):
             self.enhancer = Enhancerv11(128, [8, 8], 4)
             print("use enhancev11") 
         if 'enhancer' in args and args['enhancer'] == 'enhancev12':
-            self.enhancer = Enhancerv12(64, [8, 8], 4)
+            self.enhancer = Enhancerv12(128, [8, 8], 4)
             print("use enhancev12")
         if 'enhancer' in args and args['enhancer'] == 'enhancev13':
             self.enhancer = Enhancerv13(128, [8, 8], 4)

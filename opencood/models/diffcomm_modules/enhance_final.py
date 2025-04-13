@@ -273,7 +273,7 @@ class SplitAttn(nn.Module):
             plt.savefig(save_path)
             plt.close()
 
-    def forward(self, window_list, affine_matrix=None):
+    def forward(self, window_list,):
         # window list: [(B, L, H, W, C) * 3]
         assert len(window_list) == 1, 'only 3 windows are supported'
 
@@ -310,16 +310,15 @@ class Enhancer_block(nn.Module):
         self.mlp = FRFN(dim=C, hidden_dim=C*2, act_layer=nn.GELU, drop=0.)
         self.norm1 = nn.LayerNorm(C)
         self.norm2 = nn.LayerNorm(C)        
-        self.drop_path = DropPath(0.1) if 0.1 > 0. else nn.Identity()
-        self.drop_path = DropPath(0.1) if 0.1 > 0. else nn.Identity()
+        self.drop_path = nn.Identity()
         
     def forward(self, x,):
         B, C, H, W = x.shape
         x = x.permute(0,2,3,1).contiguous()
         x = x.view(B, H*W, C)
-        shortcut = x
-        x = self.norm1(x)        
-        x = shortcut + self.drop_path(x)
+        # shortcut = x
+        # x = self.norm1(x)        
+        # x = shortcut + self.drop_path(x)
         x = x + self.drop_path(self.mlp(self.norm2(x), H, W))
         x = x.view(B, H, W, C)
 
@@ -344,12 +343,12 @@ class Enhancer(nn.Module):
             x = split_x[b]
             # if x.shape[0] == 1:
             #     out.append(x)
-            affine_matrix_ = affine_matrix[b,0][:x.shape[0]]
-            s = self.block_1(x, affine_matrix_)
+            # affine_matrix_ = affine_matrix[b,0][:x.shape[0]]
+            s = self.block_1(x, )
             # m = self.block_2(x, affine_matrix_)
             # l = self.block_3(x, affine_matrix_)
             # out.append(self.split_attn([s, m, l], affine_matrix_).permute(0,3,1,2).contiguous())
-            out.append(self.split_attn([s,], affine_matrix_).permute(0,3,1,2).contiguous())
+            out.append(self.split_attn([s,],).permute(0,3,1,2).contiguous())
             
         out = torch.cat(out, 0)
         return out

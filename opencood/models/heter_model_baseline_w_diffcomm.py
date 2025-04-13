@@ -27,9 +27,9 @@ import importlib
 import torchvision
 from opencood.visualization.vis_bevfeat import vis_bev
 
-class HeterModelBaselineWDiffCommStage2(nn.Module):
+class HeterModelBaselineWDiffComm(nn.Module):
     def __init__(self, args):
-        super(HeterModelBaselineWDiffCommStage2, self).__init__()
+        super(HeterModelBaselineWDiffComm, self).__init__()
         self.args = args
         self.diffcomm = DiffComm(args['diffcomm'])
         modality_name_list = list(args.keys())
@@ -85,7 +85,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             message_extractor building
             """
             setattr(self, f"message_extractor_{modality_name}", 
-                    MessageExtractorv2(args['message_extractor']['in_ch'], model_setting['message_extractor_args']['out_ch']))
+                    MessageExtractorv2(args['message_extractor']['in_ch'], args['message_extractor']['out_ch']))
             
             if args.get("fix_encoder", False):
                 self.fix_modules += [f"encoder_{modality_name}", f"backbone_{modality_name}"]
@@ -193,7 +193,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         # print(agent_modality_list)
 
         modality_count_dict = Counter(agent_modality_list)
-        print(modality_count_dict)
+        # print(modality_count_dict)
         modality_feature_dict = {}
         modality_message_dict = {}
 

@@ -77,7 +77,7 @@ postprocess:
     w: 1.6
     h: 1.56
     r: &anchor_yaw [0, 90]
-    feature_stride: 2
+    feature_stride: 4
     num: &anchor_num 2
   target_args:
     pos_threshold: 0.6
@@ -137,7 +137,7 @@ model:
       in_ch: 128          # 'enhance', 'enhanceV1', ...
     message_extractor: 
       in_ch: 128
-      out_ch: 128
+      out_ch: 2
     fusion_method: att
     att:
       feat_dim: 128
@@ -163,7 +163,7 @@ model:
         num_diffusion_timesteps: 3
 
 loss:
-  core_method: point_pillar_diffcomm_loss
+  core_method: point_pillar_gmatch_loss
   args:
     pos_cls_weight: 2.0
     cls:

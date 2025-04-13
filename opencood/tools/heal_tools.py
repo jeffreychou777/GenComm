@@ -166,10 +166,10 @@ def merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir
     stage1_model_path = get_model_path_from_dir(stage1_model_dir)
     single_model_dict = torch.load(single_model_path, map_location='cpu')
     stage1_model_dict = torch.load(stage1_model_path, map_location='cpu')
-    stage1_model_dict['message_extractor_m1.weight']= stage1_model_dict.pop('message_extractor.weight')
-    stage1_model_dict['message_extractor_m1.bias']= stage1_model_dict.pop('message_extractor.bias')
-    single_model_dict['message_extractor_m2.weight']= single_model_dict.pop('message_extractor.weight')
-    single_model_dict['message_extractor_m2.bias']= single_model_dict.pop('message_extractor.bias')
+    # stage1_model_dict['message_extractor_m1.weight']= stage1_model_dict.pop('message_extractor.weight')
+    # stage1_model_dict['message_extractor_m1.bias']= stage1_model_dict.pop('message_extractor.bias')
+    # single_model_dict['message_extractor_m2.weight']= single_model_dict.pop('message_extractor.weight')
+    # single_model_dict['message_extractor_m2.bias']= single_model_dict.pop('message_extractor.bias')
     merged_dict = merge_dict_diffcomm(single_model_dict, stage1_model_dict)
     
     output_model_path = os.path.join(output_model_dir, 'net_epoch1.pth')
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     #     merge_and_save_final(sys.argv[2:-1], sys.argv[-1])
     # else:
     #     raise "This function not implemented"
-    single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stage1/m1_base/'
-    stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stage1/m2_base/'
-    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/m1_alignto_m2_infer_wo_align'
+    single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_att_wo_diffcomm_2025_04_11_01_56_53'
+    stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_wo_diffcomm_2025_04_10_11_12_23'
+    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/m3_alignto_m1_infer_wo_align'
     merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir)
