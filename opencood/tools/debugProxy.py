@@ -1,7 +1,7 @@
 import sys
 import runpy
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 os.chdir('/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
@@ -69,12 +69,31 @@ diffcomm_m2_alignto_m1_vis = 'python opencood/tools/inference.py --model_dir /ho
 
 m1_att_diffcomm = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/single_w_diffcomm/m1_att_diffcomm.yaml'
 m3_att_diffcomm = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/single/m3_att.yaml'
-args = m1_att_diffcomm
+m3_att_wo_diffcomm = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/single/m3_att.yaml'
+m1m3_att_mpda = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/m1m3'
+
+hdf5_test = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m2_base_att_wo_diffcomm_2025_04_12_03_19_03 --range 51.2,51.2'
+m1m3_att_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_att_new'
+m1m3_fcooper_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_fcooper'
+m1m3_att_old = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_att_old'
+m1m3_att_new = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_att_newer'
+m1m3_unknown = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/m3_alignto_m1_infer_wo_align'
+m1m2_att = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m2_att'
+
+m2_alignto_m1 = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/m2_alignto_m1_infer_wo_align'
+m1m3_pyramid_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_pyramid'
+m3_att_new = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/single/m3_att.yaml'
+
+m1m3_pnpda = 'python opencood/tools/train.py -y None --model_dir  /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/pnpda'
+m1m3_where2comm = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_where2comm'
+m1m3_codebook = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m3_att'
+
+args = m1m3_codebook
 
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 
-args = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/verify/m1_att_diffcomm_dropout.yaml'
+# args = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/verify/m1_att_diffcomm_dropout.yaml'
 
 # args = 'python test.py 5 7'
 args = args.split()

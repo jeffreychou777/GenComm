@@ -16,17 +16,24 @@ from opencood.models.fuse_modules.pyramid_fuse import PyramidFusion
 from opencood.utils.transformation_utils import normalize_pairwise_tfm
 from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
 from opencood.visualization.vis_bevfeat import vis_bev, visualize_feature_maps
+from opencood.models.fuse_modules.fusion_in_one import regroup
+from opencood.models.mpda_modules.classfier import DAImgHead
+from opencood.models.mpda_modules.resizer import LearnableResizer
+from opencood.models.mpda_modules.wg_fusion_modules import CrossDomainFusionEncoder
 import importlib
 import torchvision
 
-class HeterPyramidCollab(nn.Module):
+class HeterPyramidCollabWMpda(nn.Module):
     def __init__(self, args):
-        super(HeterPyramidCollab, self).__init__()
+        super(HeterPyramidCollabWMpda, self).__init__()
         self.args = args
+        self.resizer = LearnableResizer(args['resizer'])
+        self.cdt = CrossDomainFusionEncoder(args['cdt'])
+        self.classifier = DAImgHead(64)
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-
+        self.fix_modules = []
         self.cav_range = args['lidar_range']
         self.sensor_type_dict = OrderedDict()
 
@@ -61,6 +68,7 @@ class HeterPyramidCollab(nn.Module):
             Backbone building 
             """
             setattr(self, f"backbone_{modality_name}", ResNetBEVBackbone(model_setting['backbone_args']))
+            self.fix_modules += [f"encoder_{modality_name}", f"backbone_{modality_name}"]
 
             """
             Aligner building
@@ -114,8 +122,10 @@ class HeterPyramidCollab(nn.Module):
             self.compressor = NaiveCompressor(args['compressor']['input_dim'],
                                               args['compressor']['compress_ratio'])
 
-        self.model_train_init()
+        # self.model_train_init()
         # check again which module is not fixed.
+        
+        self.model_train_init_mpda()
         check_trainable_module(self)
 
 
@@ -130,6 +140,12 @@ class HeterPyramidCollab(nn.Module):
             self.compressor.train()
             for p in self.compressor.parameters():
                 p.requires_grad_(True)
+
+    def model_train_init_mpda(self):
+        for module in self.fix_modules:
+            for p in eval(f"self.{module}").parameters():
+                p.requires_grad_(False)
+            eval(f"self.{module}").apply(fix_bn)
 
     def forward(self, data_dict):
         output_dict = {'pyramid': 'collab'}
@@ -187,7 +203,37 @@ class HeterPyramidCollab(nn.Module):
         note='m1m3_pyramid_'
         # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego', normalize=True)
         # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav', normalize=True)
-        visualize_feature_maps(heter_feature_2d, mode='mean', save_path=f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3/{note}ego.png')
+        # visualize_feature_maps(heter_feature_2d, mode='mean', save_path=f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3/{note}ego.png')
+        
+        ######MPDA########
+        heter_feature_split = regroup(heter_feature_2d, record_len)
+        class_labels = []
+        class_logits = []
+        reshaped_spatial_feature_list = []
+        for i in range(len(heter_feature_split)):
+            ego_feature = heter_feature_split[i][0].unsqueeze(0)
+            class_labels.append(0)
+            if heter_feature_split[i].shape[0] == 1:     # only ego
+                # cav_feature = ego_feature
+                # cav_feature = self.resizer(ego_feature, cav_feature)        
+                # ego_copy = ego_feature.clone()
+                # cav_feature = self.cdt(ego_copy, cav_feature)
+                class_logits.append(self.classifier(torch.cat((ego_feature, ),dim=0)))
+                reshaped_spatial_feature_list.append(torch.cat((ego_feature,),dim=0))
+            else:
+                cav_feature = heter_feature_split[i][1:]
+                for j in range(len(cav_feature)):
+                    class_labels.append(1)
+                cav_feature = self.resizer(ego_feature, cav_feature)        
+                ego_copy = ego_feature.repeat(cav_feature.shape[0], 1, 1, 1)
+                cav_feature = self.cdt(ego_copy, cav_feature)
+                class_logits.append(self.classifier(torch.cat((ego_feature,cav_feature),dim=0)))
+                reshaped_spatial_feature_list.append(torch.cat((ego_feature,cav_feature),dim=0))
+                
+        heter_feature_2d = torch.cat(reshaped_spatial_feature_list, dim=0)
+        # class_labels = torch.tensor(class_labels).to(heter_feature_2d.device)
+        # class_labels = class_labels.unsqueeze(1)
+        class_logits = torch.cat(class_logits, dim=0)
         
         fused_feature, occ_outputs = self.pyramid_backbone.forward_collab(
                                                 heter_feature_2d,
@@ -206,7 +252,9 @@ class HeterPyramidCollab(nn.Module):
 
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
-                            'dir_preds': dir_preds})
+                            'dir_preds': dir_preds,
+                            'da_feature': class_logits,
+                            'record_len': record_len,})
         
         output_dict.update({'occ_single_list': 
                             occ_outputs})

@@ -1,4 +1,4 @@
-name: m3_base_att_wo_diffcomm
+name: m3_base_pyramid_wo_diffcomm 
 root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
 validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
 test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
@@ -11,19 +11,11 @@ train_params:
   save_freq: 2
   max_cav: 5
 
-verify_mode: False
-# yaml_parser: "load_general_params"
-# train_params:
-#   batch_size: &batch_size 2
-#   epoches: 20
-#   eval_freq: 2
-#   save_freq: 2
-#   max_cav: 5
-
 comm_range: 70
 input_source: ['lidar']
 label_type: 'lidar'
 cav_lidar_range: &cav_lidar [-102.4, -51.2, -3, 102.4, 51.2, 1]
+
 
 heter:
   assignment_path: "opencood/modality_assign/opv2v_4modality.json" 
@@ -98,11 +90,10 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline
+  core_method: heter_pyramid_collab
   args:
     lidar_range: *cav_lidar
-    ego_modality: *ego_modality
-
+    supervise_single: false
 
     m3:
       core_method: *core_method_m3
@@ -119,35 +110,45 @@ model:
         map2bev:
           feature_num: 128
 
-      backbone_args: identity
-  
-      shrink_header: 
-        kernal_size: [ 3 ]
-        stride: [ 2 ]
-        padding: [ 1 ]
-        dim: [ 128 ]
-        input_dim: 128 
+      backbone_args:
+        layer_nums: [3]
+        layer_strides: [1]
+        num_filters: [64]
+        inplanes: 128
+      
+      aligner_args:
+        core_method: identity
 
+    fusion_backbone: 
+      resnext: true
+      layer_nums: [3, 5, 8]
+      layer_strides: [1, 2, 2]
+      num_filters: [64, 128, 256]
+      upsample_strides: [1, 2, 4]
+      num_upsample_filter: [128, 128, 128]
+      anchor_number: *anchor_num
 
-    fusion_method: att
-    att:
-      feat_dim: 128 
-    
+    shrink_header: 
+      kernal_size: [ 3 ]
+      stride: [ 2 ]
+      padding: [ 1 ]
+      dim: [ 128 ]
+      input_dim: 384 # 128 * 3
+
     in_head: 128
-
     anchor_number: *anchor_num
     dir_args: *dir_args
 
 
 loss:
-  core_method: point_pillar_depth_loss
+  core_method: point_pillar_pyramid_loss
   args:
     pos_cls_weight: 2.0
     cls:
       type: 'SigmoidFocalLoss'
       alpha: 0.25
       gamma: 2.0
-      weight: 2.0   # matter?
+      weight: 2.0
     reg:
       type: 'WeightedSmoothL1Loss'
       sigma: 3.0
@@ -159,6 +160,10 @@ loss:
       args: *dir_args
     depth:
       weight: 1.0
+    pyramid:
+      relative_downsample: [1, 2, 4]
+      weight: [0.4, 0.2, 0.1]
+
 
 optimizer:
   core_method: Adam

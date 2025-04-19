@@ -48,7 +48,7 @@ class LearnableResizer(nn.Module):
         cav_feature = self.channel_selector(cav_feature)
         # ego_feature=ego_feature.squeeze(0)
 
-        _, h, w = ego_feature.shape
+        _ , _, h, w = ego_feature.shape
         # self attention
         cav_feature_1 = self.wg_att_1(cav_feature)
         # naive feature resizer

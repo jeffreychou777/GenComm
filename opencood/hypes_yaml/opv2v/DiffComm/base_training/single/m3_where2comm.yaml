@@ -1,7 +1,7 @@
-name: m3_base_att_wo_diffcomm
-root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
-validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
-test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
+name: m3_base_where2comm_wo_diffcomm
+root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/train"
+validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/validate"
+test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/test"
 
 yaml_parser: "load_general_params"
 train_params:
@@ -36,6 +36,8 @@ heter:
     m3: m3
     m4: m3
   modality_setting:
+
+
     m3:
       sensor_type: &sensor_type_m3 'lidar'
       core_method: &core_method_m3 "second"
@@ -126,12 +128,11 @@ model:
         stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 128 ]
-        input_dim: 128 
+        input_dim: 128 # 128 * 3
 
 
-    fusion_method: att
-    att:
-      feat_dim: 128 
+    fusion_method: where2comm
+    where2comm: 128
     
     in_head: 128
 

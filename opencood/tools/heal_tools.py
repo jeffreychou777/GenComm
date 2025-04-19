@@ -124,8 +124,7 @@ def merge_dict_diffcomm(single_model_dict, stage1_model_dict):
     #     = stage1_model_dict['cls_head.weight']
     # stage1_model_dict['message_extractor_' + stage1_modality + '.bias'] \
     #     = stage1_model_dict['cls_head.bias']
-    
-    
+
     single_keys = set(single_model_dict.keys())
     stage1_keys = set(stage1_model_dict.keys())
     symm_diff_set = single_keys & stage1_keys
@@ -175,6 +174,36 @@ def merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir
     output_model_path = os.path.join(output_model_dir, 'net_epoch1.pth')
     torch.save(merged_dict, output_model_path)
 
+def merge_dict_mpda(path1, path2):
+    dict1 = torch.load(get_model_path_from_dir(path1), map_location='cpu')   #ego
+    dict2 = torch.load(get_model_path_from_dir(path2), map_location='cpu')
+    
+    merged_dict = OrderedDict()
+    
+    dict1_keys = set(dict1.keys())
+    dict2_keys = set(dict2.keys())
+    
+    symm_diff_set = dict1_keys & dict2_keys
+    overlap_module = set([key.split(".")[0] for key in symm_diff_set])
+    print("=======Overlap modules in two checkpoints=======")
+    print(*overlap_module, sep="\n")
+    for param in symm_diff_set:
+        if not torch.equal(dict2[param], dict1[param]):
+            print(f"[WARNING]: Different param in {param}")
+    print("================================================")
+
+    for key in dict2:
+        # remove keys like 'layers_m4.resnet.layer2.0.bn1.bias' / 'cls_head_m4.weight' / 'shrink_conv_m4.weight'
+        # from single_model_dict
+        if 'layers_m' in key or 'head_m' in key or 'shrink_conv_m' in key: 
+            print(f"Pass {key}")
+            continue
+        merged_dict[key] = dict2[key]
+
+    for key in dict1_keys:
+        merged_dict[key] = dict1[key]
+
+    return merged_dict
 
 def merge_and_save_final(aligned_model_dir_list, output_model_dir):
     """
@@ -211,7 +240,7 @@ if __name__ == "__main__":
     #     merge_and_save_final(sys.argv[2:-1], sys.argv[-1])
     # else:
     #     raise "This function not implemented"
-    single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_att_wo_diffcomm_2025_04_11_01_56_53'
-    stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_wo_diffcomm_2025_04_10_11_12_23'
-    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/m3_alignto_m1_infer_wo_align'
+    single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_base_v2xvit_wo_diffcomm_2025_04_19_02_05_20'
+    stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_base_v2xvit_wo_diffcomm_2025_04_18_03_54_51'
+    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/m1m3_v2xvit'
     merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir)

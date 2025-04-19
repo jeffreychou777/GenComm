@@ -1,4 +1,4 @@
-name: m3_base_att_wo_diffcomm
+name: m3_base_fcooper_wo_diffcomm
 root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
 validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
 test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
@@ -36,6 +36,8 @@ heter:
     m3: m3
     m4: m3
   modality_setting:
+
+
     m3:
       sensor_type: &sensor_type_m3 'lidar'
       core_method: &core_method_m3 "second"
@@ -119,19 +121,23 @@ model:
         map2bev:
           feature_num: 128
 
-      backbone_args: identity
+      backbone_args:
+        layer_nums: [3,]
+        layer_strides: [1,]
+        num_filters: [64,]
+        upsample_strides: [1,]
+        num_upsample_filter: [128,]
+        inplanes: 128
   
       shrink_header: 
         kernal_size: [ 3 ]
         stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 128 ]
-        input_dim: 128 
+        input_dim: 128 # 128 * 3
 
 
-    fusion_method: att
-    att:
-      feat_dim: 128 
+    fusion_method: max
     
     in_head: 128
 

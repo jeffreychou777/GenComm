@@ -1,36 +1,42 @@
-""" Author: Yifan Lu <yifan_lu@sjtu.edu.cn>
+# -*- coding: utf-8 -*-
+# Author: Yifan Lu <yifan_lu@sjtu.edu.cn>
+# License: TDG-Attribution-NonCommercial-NoDistrib
 
-HEAL: An Extensible Framework for Open Heterogeneous Collaborative Perception 
-"""
+# A unified framework for LiDAR-only / Camera-only / Heterogeneous collaboration.
+# Support multiple fusion strategies.
+
 
 import torch
 import torch.nn as nn
 import numpy as np
 from icecream import ic
 from collections import OrderedDict, Counter
+from opencood.models.sub_modules.point_pillar_scatter import PointPillarScatter
 from opencood.models.sub_modules.base_bev_backbone_resnet import ResNetBEVBackbone 
 from opencood.models.sub_modules.feature_alignnet import AlignNet
+from opencood.models.sub_modules.base_bev_backbone import BaseBEVBackbone
 from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
-from opencood.models.fuse_modules.pyramid_fuse import PyramidFusion
+from opencood.models.fuse_modules.fusion_in_one import MaxFusion, AttFusion, DiscoFusion, V2VNetFusion, V2XViTFusion, CoBEVT, Where2commFusion, Who2comFusion
 from opencood.utils.transformation_utils import normalize_pairwise_tfm
 from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
 from opencood.visualization.vis_bevfeat import vis_bev, visualize_feature_maps
 import importlib
 import torchvision
 
-class HeterPyramidCollab(nn.Module):
+class HeterModelBaselineWBackalign(nn.Module):
     def __init__(self, args):
-        super(HeterPyramidCollab, self).__init__()
+        super(HeterModelBaselineWBackalign, self).__init__()
         self.args = args
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
+        self.fix_modules = ['fusion_net', 'cls_head', 'reg_head', 'dir_head']
+
+        self.ego_modality = args['ego_modality']
 
         self.cav_range = args['lidar_range']
         self.sensor_type_dict = OrderedDict()
-
-        self.cam_crop_info = {} 
 
         # setup each modality model
         for modality_name in self.modality_name_list:
@@ -60,33 +66,51 @@ class HeterPyramidCollab(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", ResNetBEVBackbone(model_setting['backbone_args']))
-
+            setattr(self, f"backbone_{modality_name}", nn.Identity() if model_setting['backbone_args'] == 'identity' else
+                    BaseBEVBackbone(model_setting['backbone_args'], model_setting['backbone_args'].get('inplanes',64)))
+            
             """
-            Aligner building
+            shrink conv building
             """
-            setattr(self, f"aligner_{modality_name}", AlignNet(model_setting['aligner_args']))
+            setattr(self, f"shrinker_{modality_name}", DownsampleConv(model_setting['shrink_header']))
+            self.fix_modules += [f"shrinker_{self.ego_modality}", f"encoder_{self.ego_modality}", f"backbone_{self.ego_modality}"]
             if sensor_name == "camera":
                 camera_mask_args = model_setting['camera_mask_args']
                 setattr(self, f"crop_ratio_W_{modality_name}", (self.cav_range[3]) / (camera_mask_args['grid_conf']['xbound'][1]))
                 setattr(self, f"crop_ratio_H_{modality_name}", (self.cav_range[4]) / (camera_mask_args['grid_conf']['ybound'][1]))
                 setattr(self, f"xdist_{modality_name}", (camera_mask_args['grid_conf']['xbound'][1] - camera_mask_args['grid_conf']['xbound'][0]))
                 setattr(self, f"ydist_{modality_name}", (camera_mask_args['grid_conf']['ybound'][1] - camera_mask_args['grid_conf']['ybound'][0]))
-                self.cam_crop_info[modality_name] = {
-                    f"crop_ratio_W_{modality_name}": eval(f"self.crop_ratio_W_{modality_name}"),
-                    f"crop_ratio_H_{modality_name}": eval(f"self.crop_ratio_H_{modality_name}"),
-                }
 
         """For feature transformation"""
         self.H = (self.cav_range[4] - self.cav_range[1])
         self.W = (self.cav_range[3] - self.cav_range[0])
         self.fake_voxel_size = 1
 
-        """
-        Fusion, by default multiscale fusion: 
-        Note the input of PyramidFusion has downsampled 2x. (SECOND required)
-        """
-        self.pyramid_backbone = PyramidFusion(args['fusion_backbone'])
+        self.supervise_single = False
+        if args.get("supervise_single", False):
+            self.supervise_single = True
+            in_head_single = args['in_head_single']
+            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'], kernel_size=1))
+            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7, kernel_size=1))
+            setattr(self, f'dir_head_single', nn.Conv2d(in_head_single, args['anchor_number'] *  args['dir_args']['num_bins'], kernel_size=1))
+
+
+        if args['fusion_method'] == "max":
+            self.fusion_net = MaxFusion()
+        if args['fusion_method'] == "att":
+            self.fusion_net = AttFusion(args['att']['feat_dim'])
+        if args['fusion_method'] == "disconet":
+            self.fusion_net = DiscoFusion(args['disconet']['feat_dim'])
+        if args['fusion_method'] == "v2vnet":
+            self.fusion_net = V2VNetFusion(args['v2vnet'])
+        if args['fusion_method'] == 'v2xvit':
+            self.fusion_net = V2XViTFusion(args['v2xvit'])
+        if args['fusion_method'] == 'cobevt':
+            self.fusion_net = CoBEVT(args['cobevt'])
+        if args['fusion_method'] == 'where2comm':
+            self.fusion_net = Where2commFusion(args['where2comm'])
+        if args['fusion_method'] == 'who2com':
+            self.fusion_net = Who2comFusion(args['who2com'])
 
 
         """
@@ -113,14 +137,13 @@ class HeterPyramidCollab(nn.Module):
             self.compress = True
             self.compressor = NaiveCompressor(args['compressor']['input_dim'],
                                               args['compressor']['compress_ratio'])
+            self.model_train_init()
 
-        self.model_train_init()
+        self.model_train_init_backalign()
         # check again which module is not fixed.
         check_trainable_module(self)
 
-
     def model_train_init(self):
-        # if compress, only make compressor trainable
         if self.compress:
             # freeze all
             self.eval()
@@ -130,22 +153,30 @@ class HeterPyramidCollab(nn.Module):
             self.compressor.train()
             for p in self.compressor.parameters():
                 p.requires_grad_(True)
+    def model_train_init_backalign(self):
+        for module in self.fix_modules:
+            for p in eval(f"self.{module}").parameters():
+                p.requires_grad_(False)
+            eval(f"self.{module}").apply(fix_bn)
+        
 
     def forward(self, data_dict):
-        output_dict = {'pyramid': 'collab'}
+        output_dict = {}
         agent_modality_list = data_dict['agent_modality_list'] 
         affine_matrix = normalize_pairwise_tfm(data_dict['pairwise_t_matrix'], self.H, self.W, self.fake_voxel_size)
         record_len = data_dict['record_len'] 
         # print(agent_modality_list)
+
         modality_count_dict = Counter(agent_modality_list)
         modality_feature_dict = {}
-
+        # print(modality_count_dict)
         for modality_name in self.modality_name_list:
             if modality_name not in modality_count_dict:
                 continue
             feature = eval(f"self.encoder_{modality_name}")(data_dict, modality_name)
-            feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
-            feature = eval(f"self.aligner_{modality_name}")(feature)
+            if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
+                feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+            feature = eval(f"self.shrinker_{modality_name}")(feature)
             modality_feature_dict[modality_name] = feature
 
         """
@@ -181,21 +212,35 @@ class HeterPyramidCollab(nn.Module):
         
         if self.compress:
             heter_feature_2d = self.compressor(heter_feature_2d)
-
-        # heter_feature_2d is downsampled 2x
-        # add croping information to collaboration module
-        note='m1m3_pyramid_'
-        # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego', normalize=True)
-        # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav', normalize=True)
-        visualize_feature_maps(heter_feature_2d, mode='mean', save_path=f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3/{note}ego.png')
         
-        fused_feature, occ_outputs = self.pyramid_backbone.forward_collab(
-                                                heter_feature_2d,
-                                                record_len, 
-                                                affine_matrix, 
-                                                agent_modality_list, 
-                                                self.cam_crop_info
-                                            )
+        note = 'm1_m3_where2comm_'
+        # visualize_feature_maps(heter_feature_2d, mode='mean', save_path=f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3/{note}ego_cav.png')
+        # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego',)
+        # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav',)
+        # vis_bev(gt_feature[0].detach().cpu().numpy(), type='ego')
+        # vis_bev(gen_data_dict['t1'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t1')
+        # vis_bev(gen_data_dict['t2'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t2')
+        # vis_bev(gt_feature[1].detach().cpu().numpy(), type='cav')
+        # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
+        # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
+
+        """
+        Single supervision
+        """
+        if self.supervise_single:
+            cls_preds_before_fusion = self.cls_head_single(heter_feature_2d)
+            reg_preds_before_fusion = self.reg_head_single(heter_feature_2d)
+            dir_preds_before_fusion = self.dir_head_single(heter_feature_2d)
+            output_dict.update({'cls_preds_single': cls_preds_before_fusion,
+                                'reg_preds_single': reg_preds_before_fusion,
+                                'dir_preds_single': dir_preds_before_fusion})
+
+        """
+        Feature Fusion (multiscale).
+
+        we omit self.backbone's first layer.
+        """
+        fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
 
         if self.shrink_flag:
             fused_feature = self.shrink_conv(fused_feature)
@@ -207,8 +252,5 @@ class HeterPyramidCollab(nn.Module):
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
                             'dir_preds': dir_preds})
-        
-        output_dict.update({'occ_single_list': 
-                            occ_outputs})
 
         return output_dict

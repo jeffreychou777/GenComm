@@ -26,6 +26,7 @@ class VoxelPostprocessor(BasePostprocessor):
     def __init__(self, anchor_params, train):
         super(VoxelPostprocessor, self).__init__(anchor_params, train)
         self.anchor_num = self.params['anchor_args']['num']
+        self.max_num = self.params['max_num']
 
     def generate_anchor_box(self):
         # load_voxel_params and load_point_pillar_params leads to the same anchor
@@ -205,7 +206,118 @@ class VoxelPostprocessor(BasePostprocessor):
                       'targets': targets}
 
         return label_dict
+    def generate_pos_region_ranges(self, **kwargs):
+        """
+        Generate voxel set of targets for training.
 
+        Parameters
+        ----------
+        argv : dict
+            gt_box_center_valid:(max_num, 7)
+
+        Returns
+        -------
+        label_dict : dict
+            Dictionary that contains all target related info.
+        """
+
+        assert self.params["order"] == "hwl", (
+            "Currently Voxel only support" "hwl bbx order."
+        )
+        # (n, 7)
+        gt_box_center = kwargs["gt_box_center"]
+
+        label_dict = kwargs["label_dict"]
+        # (H,W,anchor_num*2)
+        targets = label_dict["targets"]
+
+        H, W = targets.shape[:2]
+        # (n, 8, 3)
+        gt_box_corner_valid = box_utils.boxes_to_corners_3d(
+            gt_box_center, self.params["order"]
+        )
+        # (n,4): (minx,miny,maxx,maxy)
+        gt_standup_2d = box_utils.corner2d_to_standup_box(gt_box_corner_valid)
+
+        x = np.linspace(
+            self.params["anchor_args"]["cav_lidar_range"][0],
+            self.params["anchor_args"]["cav_lidar_range"][3],
+            W,
+        )
+        y = np.linspace(
+            self.params["anchor_args"]["cav_lidar_range"][1],
+            self.params["anchor_args"]["cav_lidar_range"][4],
+            H,
+        )
+
+        pos_region_ranges = np.zeros((self.max_num, H, W), dtype=bool)
+        for i, item in enumerate(gt_standup_2d):
+            left = int(np.argwhere(x <= item[0])[-1])
+            right = int(np.argwhere(x >= item[2])[0])
+            top = int(np.argwhere(y <= item[1])[-1])
+            bottom = int(np.argwhere(y >= item[3])[0])
+            pos_region_ranges[[i], top : bottom + 1, left : right + 1] = True
+
+        label_dict.update(
+            {
+                "pos_region_ranges": pos_region_ranges,
+                "cav_num": len(gt_standup_2d),
+            }
+        )
+        return label_dict
+    
+    def generate_pos_region_rangesv2(self, **kwargs):
+        """
+        Generate voxel set of targets for training.
+
+        Parameters
+        ----------
+        argv : dict
+            gt_box_center_valid:(max_num, 7)
+
+        Returns
+        -------
+        label_dict : dict
+            Dictionary that contains all target related info.
+        """
+
+        assert self.params["order"] == "hwl", (
+            "Currently Voxel only support" "hwl bbx order."
+        )
+        # (n, 4):(minx,miny,maxx,maxy)
+        seg_standup_2d= kwargs["gt_box_center"]
+        label_dict = kwargs["label_dict"]
+        # (H,W,anchor_num*2)
+        targets = label_dict["targets"]
+
+        H, W = targets.shape[:2]
+
+        x = np.linspace(
+            self.params["anchor_args"]["cav_lidar_range"][0],
+            self.params["anchor_args"]["cav_lidar_range"][3],
+            W,
+        )
+        y = np.linspace(
+            self.params["anchor_args"]["cav_lidar_range"][1],
+            self.params["anchor_args"]["cav_lidar_range"][4],
+            H,
+        )
+
+        pos_region_ranges = np.zeros((self.max_num, H, W), dtype=bool)
+        for i, item in enumerate(seg_standup_2d):
+            left = int(np.argwhere(x <= item[0])[-1])
+            right = int(np.argwhere(x >= item[2])[0])
+            top = int(np.argwhere(y <= item[1])[-1])
+            bottom = int(np.argwhere(y >= item[3])[0])
+            pos_region_ranges[[i], top : bottom + 1, left : right + 1] = True
+
+        label_dict.update(
+            {
+                "pos_region_ranges": pos_region_ranges,
+                "cav_num": len(seg_standup_2d),
+            }
+        )
+        return label_dict
     @staticmethod
     def collate_batch(label_batch_list):
         """
@@ -224,23 +336,72 @@ class VoxelPostprocessor(BasePostprocessor):
         """
         pos_equal_one = []
         neg_equal_one = []
+        # pos_region_ranges = []
         targets = []
 
         for i in range(len(label_batch_list)):
             pos_equal_one.append(label_batch_list[i]['pos_equal_one'])
             neg_equal_one.append(label_batch_list[i]['neg_equal_one'])
+            # pos_region_ranges.append(label_batch_list[i]['pos_region_ranges'])
             targets.append(label_batch_list[i]['targets'])
 
         pos_equal_one = \
             torch.from_numpy(np.array(pos_equal_one))
         neg_equal_one = \
             torch.from_numpy(np.array(neg_equal_one))
+        # pos_region_ranges = \
+            # torch.from_numpy(np.array(pos_region_ranges))
+        targets = \
+            torch.from_numpy(np.array(targets))
+
+        # return {'targets': targets,
+        #         'pos_equal_one': pos_equal_one,
+        #         'neg_equal_one': neg_equal_one,
+        #         'pos_region_ranges': pos_region_ranges}
+        return {'targets': targets,
+                'pos_equal_one': pos_equal_one,
+                'neg_equal_one': neg_equal_one,}
+    
+    @staticmethod
+    def collate_batch_pnpda(label_batch_list):
+        """
+        Customized collate function for target label generation.
+
+        Parameters
+        ----------
+        label_batch_list : list
+            The list of dictionary  that contains all labels for several
+            frames.
+
+        Returns
+        -------
+        target_batch : dict
+            Reformatted labels in torch tensor.
+        """
+        pos_equal_one = []
+        neg_equal_one = []
+        pos_region_ranges = []
+        targets = []
+
+        for i in range(len(label_batch_list)):
+            pos_equal_one.append(label_batch_list[i]['pos_equal_one'])
+            neg_equal_one.append(label_batch_list[i]['neg_equal_one'])
+            pos_region_ranges.append(label_batch_list[i]['pos_region_ranges'])
+            targets.append(label_batch_list[i]['targets'])
+
+        pos_equal_one = \
+            torch.from_numpy(np.array(pos_equal_one))
+        neg_equal_one = \
+            torch.from_numpy(np.array(neg_equal_one))
+        pos_region_ranges = \
+            torch.from_numpy(np.array(pos_region_ranges))
         targets = \
             torch.from_numpy(np.array(targets))
 
         return {'targets': targets,
                 'pos_equal_one': pos_equal_one,
-                'neg_equal_one': neg_equal_one}
+                'neg_equal_one': neg_equal_one,
+                'pos_region_ranges': pos_region_ranges}
 
     def post_process(self, data_dict, output_dict):
         """

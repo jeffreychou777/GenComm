@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from opencood.loss.point_pillar_depth_loss import PointPillarDepthLoss
 from opencood.loss.point_pillar_loss import sigmoid_focal_loss
+import wandb
 
 class PointPillarPyramidLoss(PointPillarDepthLoss):
     def __init__(self, args):
@@ -104,7 +105,7 @@ class PointPillarPyramidLoss(PointPillarDepthLoss):
 
 
 
-    def logging(self, epoch, batch_id, batch_len, writer = None, suffix=""):
+    def logging(self, epoch, batch_id, batch_len, writer = None, suffix="", iter=None):
         """
         Print out  the loss function for current iteration.
 
@@ -146,4 +147,13 @@ class PointPillarPyramidLoss(PointPillarDepthLoss):
                             epoch*batch_len + batch_id)
             writer.add_scalar('Pyramid_loss' + suffix, pyramid_loss,
                 epoch*batch_len + batch_id)
+        
+        wandb.log({
+            'train_loss_iter'+suffix: total_loss,
+            'Reg_loss' + suffix: reg_loss,
+            'Conf_loss' + suffix: cls_loss,
+            'Dir_loss' + suffix: dir_loss,
+            'Iou_loss' + suffix: iou_loss,
+            'depth_loss' + suffix: depth_loss,
+        }, step=iter)
 

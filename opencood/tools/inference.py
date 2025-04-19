@@ -95,9 +95,7 @@ def main():
 
     print('Loading Model from checkpoint')
     saved_path = opt.model_dir
-    print(model.fusion_net.parameters())     #print paras
     resume_epoch, model = train_utils.load_saved_model(saved_path, model)
-    print(model.fusion_net)
     print(f"resume from {resume_epoch} epoch.")
     opt.note += f"_epoch{resume_epoch}"
     
@@ -228,8 +226,12 @@ def main():
                                     left_hand=left_hand)
         torch.cuda.empty_cache()
 
+    # _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
+    #                             opt.model_dir, infer_info)
     _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
-                                opt.model_dir, infer_info)
+                                opt.model_dir, global_sort_detections=True, infer_info = infer_info)
+    _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
+                                opt.model_dir, global_sort_detections=False, infer_info = infer_info)
 
 if __name__ == '__main__':
     main()

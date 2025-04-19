@@ -1,4 +1,4 @@
-name: m3_base_att_wo_diffcomm
+name: m1m3_e2e_att
 root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
 validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
 test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
@@ -9,33 +9,75 @@ train_params:
   epoches: 20
   eval_freq: 2
   save_freq: 2
-  max_cav: 5
+  max_cav: 2
 
-verify_mode: False
+# verify_mode: True
 # yaml_parser: "load_general_params"
 # train_params:
-#   batch_size: &batch_size 2
-#   epoches: 20
-#   eval_freq: 2
-#   save_freq: 2
+#   batch_size: &batch_size 1
+#   epoches: 5
+#   eval_freq: 1
+#   save_freq: 1
 #   max_cav: 5
 
 comm_range: 70
-input_source: ['lidar']
+input_source: ['lidar', 'camera', 'depth']
 label_type: 'lidar'
-cav_lidar_range: &cav_lidar [-102.4, -51.2, -3, 102.4, 51.2, 1]
+cav_lidar_range: &cav_lidar [-102.4, -102.4, -3, 102.4, 102.4, 1]
+ego_diff_cav: True
+add_data_extension: ['bev_visibility.png']
+
+
+m1_pretrain: '' 
+m3_pretrain: ''
 
 heter:
   assignment_path: "opencood/modality_assign/opv2v_4modality.json" 
-  ego_modality: &ego_modality "m3"
+  ego_modality: &ego_modality "m1"
   lidar_channels_dict:
     m3: 32
   mapping_dict:
-    m1: m3
-    m2: m3
+    m1: m1
+    m2: m1
     m3: m3
     m4: m3
   modality_setting:
+    m1:
+      sensor_type: &sensor_type_m1 'lidar'
+      core_method: &core_method_m1 "point_pillar"
+
+      # lidar requires preprocess
+      preprocess:
+        # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
+        core_method: 'SpVoxelPreprocessor'
+        args:
+          voxel_size: &voxel_size [0.4, 0.4, 4]
+          max_points_per_voxel: 32
+          max_voxel_train: 32000
+          max_voxel_test: 70000
+        # lidar range for each individual cav.
+        cav_lidar_range: *cav_lidar
+    # m2:
+    #   sensor_type: &sensor_type_m2 'camera'
+    #   core_method: &core_method_m2 "lift_splat_shoot"
+
+    #   grid_conf: &grid_conf_m2
+    #     xbound: [-51.2, 51.2, 0.4]   # Limit the range of the x direction and divide the grids
+    #     ybound: [-51.2, 51.2, 0.4]   # Limit the range of the y direction and divide the grids
+    #     zbound: [-10, 10, 20.0]   # Limit the range of the z direction and divide the grids
+    #     ddiscr: [2, 50, 48]
+    #     mode: 'LID'
+    #   data_aug_conf: &data_aug_conf_m2
+    #     resize_lim: [0.65, 0.7]
+    #     final_dim: [384, 512]
+    #     rot_lim: [-3.6, 3.6]
+    #     H: 600
+    #     W: 800
+    #     rand_flip: False
+    #     bot_pct_lim: [0.0, 0.05]
+    #     cams: ['camera0', 'camera1', 'camera2', 'camera3']
+    #     Ncams: 4
+
     m3:
       sensor_type: &sensor_type_m3 'lidar'
       core_method: &core_method_m3 "second"
@@ -98,11 +140,40 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline
+  core_method: heter_model_baseline_w_mpda
   args:
+    path1: ''        # ego     eg. here is m1_path
+    path2: ''
     lidar_range: *cav_lidar
     ego_modality: *ego_modality
+    m1:
+      core_method: *core_method_m1
+      sensor_type: *sensor_type_m1
 
+      encoder_args:
+        voxel_size: *voxel_size
+        lidar_range: *cav_lidar
+        pillar_vfe:
+          use_norm: true
+          with_distance: false
+          use_absolute_xyz: true
+          num_filters: [64]
+        point_pillar_scatter:
+          num_features: 64
+
+      backbone_args:
+        layer_nums: [3, 5, 8]
+        layer_strides: [2, 2, 2]
+        num_filters: [64, 128, 256]
+        upsample_strides: [1, 2, 4]
+        num_upsample_filter: [128, 128, 128]
+  
+      shrink_header: 
+        kernal_size: [ 3 ]
+        stride: [ 2 ]
+        padding: [ 1 ]
+        dim: [ 128 ]
+        input_dim: 384 # 128 * 3
 
     m3:
       core_method: *core_method_m3
@@ -119,14 +190,40 @@ model:
         map2bev:
           feature_num: 128
 
-      backbone_args: identity
+      backbone_args:
+        layer_nums: [3, 5, 8]
+        layer_strides: [1, 2, 2]
+        num_filters: [64, 128, 256]
+        upsample_strides: [1, 2, 4]
+        num_upsample_filter: [128, 128, 128]
+        inplanes: 128
   
       shrink_header: 
         kernal_size: [ 3 ]
         stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 128 ]
-        input_dim: 128 
+        input_dim: 384 # 128 * 3
+    resizer:
+      input_channel:  128
+      output_channel: &input_dim_res 128
+      wg_att:
+        input_dim: 128
+        mlp_dim: 256
+        window_size: 2
+        dim_head: 32
+        drop_out: 0.1
+        depth: 1
+      residual:
+        input_dim: *input_dim_res
+        depth: 2
+
+    cdt:
+      input_dim: 128
+      window_size: 2
+      dim_head: 32
+      heads: 16
+      depth: 1
 
 
     fusion_method: att
@@ -140,7 +237,7 @@ model:
 
 
 loss:
-  core_method: point_pillar_depth_loss
+  core_method: point_pillar_mpda_loss
   args:
     pos_cls_weight: 2.0
     cls:
@@ -159,6 +256,7 @@ loss:
       args: *dir_args
     depth:
       weight: 1.0
+    da: True
 
 optimizer:
   core_method: Adam
@@ -171,4 +269,5 @@ lr_scheduler:
   core_method: multistep #step, multistep and Exponential support
   gamma: 0.1
   step_size: [10, 15]
+  # step_size: [3]
 

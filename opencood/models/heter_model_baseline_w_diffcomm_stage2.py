@@ -84,7 +84,8 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             """
             message_extractor building
             """
-            setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
+            # setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
+            setattr(self, f"message_extractor_{modality_name}", nn.Conv2d(128, 2, kernel_size=1))
             
             if args.get("fix_encoder", False):
                 self.fix_modules += [f"encoder_{modality_name}", f"backbone_{modality_name}"]

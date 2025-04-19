@@ -23,15 +23,31 @@ from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
 from opencood.visualization.vis_bevfeat import vis_bev, visualize_feature_maps
 import importlib
 import torchvision
+from opencood.models.sub_modules.codebook import ChannelCompressor
+from opencood.models.sub_modules.codebook import UMGMQuantizer
+from opencood.models.comm_modules.where2comm import Communication
+from opencood.models.fuse_modules.fusion_in_one import regroup
 
-class HeterModelBaseline(nn.Module):
+
+class HeterModelBaselineWCodebook(nn.Module):
     def __init__(self, args):
-        super(HeterModelBaseline, self).__init__()
+        super(HeterModelBaselineWCodebook, self).__init__()
         self.args = args
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-
+        
+        self.fix_modules = ['cls_head', 'reg_head', 'dir_head', 'fusion_net']
+        channel = 128
+        p_rate = 0.0
+        seg_num = args['codebook']['seg_num']
+        dict_size = [args['codebook']['dict_size'], args['codebook']['dict_size'], args['codebook']['dict_size']]
+        
+        self.coodbook = UMGMQuantizer(channel, seg_num, dict_size, p_rate,
+                          {"latentStageEncoder": lambda: nn.Linear(channel, channel), "quantizationHead": lambda: nn.Linear(channel, channel),
+                           "latentHead": lambda: nn.Linear(channel, channel), "restoreHead": lambda: nn.Linear(channel, channel),
+                           "dequantizationHead": lambda: nn.Linear(channel, channel), "sideHead": lambda: nn.Linear(channel, channel)})
+        self.communication = Communication(args['communication'])
         self.ego_modality = args['ego_modality']
 
         self.cav_range = args['lidar_range']
@@ -72,6 +88,7 @@ class HeterModelBaseline(nn.Module):
             shrink conv building
             """
             setattr(self, f"shrinker_{modality_name}", DownsampleConv(model_setting['shrink_header']))
+            self.fix_modules += [f"shrinker_{modality_name}", f"encoder_{modality_name}", f"backbone_{modality_name}"]
 
             if sensor_name == "camera":
                 camera_mask_args = model_setting['camera_mask_args']
@@ -140,6 +157,8 @@ class HeterModelBaseline(nn.Module):
 
 
         # check again which module is not fixed.
+
+        self.model_train_init_codebook()
         check_trainable_module(self)
 
     def model_train_init(self):
@@ -152,11 +171,18 @@ class HeterModelBaseline(nn.Module):
             self.compressor.train()
             for p in self.compressor.parameters():
                 p.requires_grad_(True)
+    
+    def model_train_init_codebook(self):
+        for module in self.fix_modules:
+            for p in eval(f"self.{module}").parameters():
+                p.requires_grad_(False)
+            eval(f"self.{module}").apply(fix_bn)
 
     def forward(self, data_dict):
         output_dict = {}
         agent_modality_list = data_dict['agent_modality_list'] 
         affine_matrix = normalize_pairwise_tfm(data_dict['pairwise_t_matrix'], self.H, self.W, self.fake_voxel_size)
+        pairwise_t_matrix = data_dict['pairwise_t_matrix']
         record_len = data_dict['record_len'] 
         # print(agent_modality_list)
 
@@ -233,6 +259,32 @@ class HeterModelBaseline(nn.Module):
 
         we omit self.backbone's first layer.
         """
+        
+        ######Codebook#####
+        print(record_len)
+        N, C, H, W = heter_feature_2d.shape
+        heter_feature_2d_gt = heter_feature_2d.clone()
+        heter_feature_2d = heter_feature_2d.permute(0, 2, 3, 1).contiguous().view(-1, C)
+        heter_feature_2d, _, _, codebook_loss = self.coodbook(heter_feature_2d)
+        heter_feature_2d = heter_feature_2d.view(-1, H, W, C).permute(0, 3, 1, 2).contiguous()
+        heter_feature_2d_gt_split = regroup(heter_feature_2d_gt, record_len)
+        shape_num = 0
+        print("record_len: ", record_len)
+        print("heter_feature_2d_gt_shape: ", heter_feature_2d_gt.shape)
+        print("heter_feature_2d_gt_split: ", len(heter_feature_2d_gt_split))
+        for index in range(len(heter_feature_2d_gt_split)):
+            #print("heter_feature_2d_gt_split_shape: ", heter_feature_2d_gt_split[index].shape)
+            #print(heter_feature_2d_gt_split[index].shape[0])
+            #print(shape_num)
+            heter_feature_2d[shape_num] = heter_feature_2d_gt_split[index][0]
+            shape_num = shape_num + heter_feature_2d_gt_split[index].shape[0]
+            
+        output_dict.update({'codebook_loss': codebook_loss})
+        
+        cls_preds_before_fusion = self.cls_head(heter_feature_2d)
+        batch_cls_preds_before_fusion = regroup(cls_preds_before_fusion, record_len)
+        _, communication_masks, communication_rates = self.communication(batch_cls_preds_before_fusion, record_len, pairwise_t_matrix)
+        heter_feature_2d = heter_feature_2d * communication_masks
         fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
 
         if self.shrink_flag:
@@ -244,6 +296,7 @@ class HeterModelBaseline(nn.Module):
 
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
-                            'dir_preds': dir_preds})
+                            'dir_preds': dir_preds,
+                            })
 
         return output_dict

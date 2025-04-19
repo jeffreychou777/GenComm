@@ -23,22 +23,25 @@ from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
 from opencood.models.mpda_modules.classfier import DAImgHead
 from opencood.models.mpda_modules.resizer import LearnableResizer
 from opencood.models.mpda_modules.wg_fusion_modules import CrossDomainFusionEncoder
+from opencood.models.fuse_modules.fusion_in_one import regroup
+from opencood.tools.heal_tools import merge_dict_mpda
 import importlib
 import torchvision
 
-class HeterModelBaseline(nn.Module):
+class HeterModelBaselineWMPDA(nn.Module):
     def __init__(self, args):
-        super(HeterModelBaseline, self).__init__()
+        super(HeterModelBaselineWMPDA, self).__init__()
+        self.resizer = LearnableResizer(args['resizer'])
+        self.cdt = CrossDomainFusionEncoder(args['cdt'])
+        self.classifier = DAImgHead(128)
         self.args = args
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-
         self.ego_modality = args['ego_modality']
-
         self.cav_range = args['lidar_range']
         self.sensor_type_dict = OrderedDict()
-
+        self.fix_modules = []
         # setup each modality model
         for modality_name in self.modality_name_list:
             model_setting = args[modality_name]
@@ -74,7 +77,7 @@ class HeterModelBaseline(nn.Module):
             shrink conv building
             """
             setattr(self, f"shrinker_{modality_name}", DownsampleConv(model_setting['shrink_header']))
-
+            self.fix_modules += [f"encoder_{modality_name}", f"backbone_{modality_name}", f"shrinker_{modality_name}"]
             if sensor_name == "camera":
                 camera_mask_args = model_setting['camera_mask_args']
                 setattr(self, f"crop_ratio_W_{modality_name}", (self.cav_range[3]) / (camera_mask_args['grid_conf']['xbound'][1]))
@@ -138,13 +141,13 @@ class HeterModelBaseline(nn.Module):
             self.compress = True
             self.compressor = NaiveCompressor(args['compressor']['input_dim'],
                                               args['compressor']['compress_ratio'])
-            self.model_train_init()
+            self.model_train_init_compressor()
 
-
+        self.model_train_init_mpda()
         # check again which module is not fixed.
         check_trainable_module(self)
 
-    def model_train_init(self):
+    def model_train_init_compressor(self):
         if self.compress:
             # freeze all
             self.eval()
@@ -154,7 +157,12 @@ class HeterModelBaseline(nn.Module):
             self.compressor.train()
             for p in self.compressor.parameters():
                 p.requires_grad_(True)
-
+    def model_train_init_mpda(self):
+        for module in self.fix_modules:
+            for p in eval(f"self.{module}").parameters():
+                p.requires_grad_(False)
+            eval(f"self.{module}").apply(fix_bn)
+    
     def forward(self, data_dict):
         output_dict = {}
         agent_modality_list = data_dict['agent_modality_list'] 
@@ -196,31 +204,44 @@ class HeterModelBaseline(nn.Module):
         Assemble heter features
         """
 
-        # counting_dict = {modality_name:0 for modality_name in self.modality_name_list}
-        # heter_feature_2d_list = []
-        # for modality_name in agent_modality_list:
-        #     feat_idx = counting_dict[modality_name]
-        #     heter_feature_2d_list.append(modality_feature_dict[modality_name][feat_idx])
-        #     counting_dict[modality_name] += 1
+        counting_dict = {modality_name:0 for modality_name in self.modality_name_list}
+        heter_feature_2d_list = []
+        for modality_name in agent_modality_list:
+            feat_idx = counting_dict[modality_name]
+            heter_feature_2d_list.append(modality_feature_dict[modality_name][feat_idx])
+            counting_dict[modality_name] += 1
 
-        # heter_feature_2d = torch.stack(heter_feature_2d_list)
-        ego_feature_batch = modality_feature_dict["spatial_features_2d"]
-        cav_feature_batch = modality_feature_dict["spatial_features_2d"]
+        heter_feature_2d = torch.stack(heter_feature_2d_list)
+        
+        ######MPDA########
+        heter_feature_split = regroup(heter_feature_2d, record_len)
+        class_labels = []
+        class_logits = []
         reshaped_spatial_feature_list = []
-        for i in range(ego_feature_batch.shape[0]):
-            ego_feature=ego_feature_batch[i]
-            cav_feature=cav_feature_batch[i].unsqueeze(0)
-            cav_feature = self.resizer(ego_feature, cav_feature)        
-            
-            ego_copy = ego_feature[None].repeat(cav_feature.shape[0],
-                                                    1, 1, 1)
-            cav_feature = self.cdt(ego_copy, cav_feature)
-
-            reshaped_spatial_feature_list.append(torch.cat((ego_feature[None],
-                                                               cav_feature),
-                                                               dim=0))
-            
+        for i in range(len(heter_feature_split)):
+            ego_feature = heter_feature_split[i][0].unsqueeze(0)
+            class_labels.append(0)
+            if heter_feature_split[i].shape[0] == 1:     # only ego
+                # cav_feature = ego_feature
+                # cav_feature = self.resizer(ego_feature, cav_feature)        
+                # ego_copy = ego_feature.clone()
+                # cav_feature = self.cdt(ego_copy, cav_feature)
+                class_logits.append(self.classifier(torch.cat((ego_feature, ),dim=0)))
+                reshaped_spatial_feature_list.append(torch.cat((ego_feature,),dim=0))
+            else:
+                cav_feature = heter_feature_split[i][1:]
+                for j in range(len(cav_feature)):
+                    class_labels.append(1)
+                cav_feature = self.resizer(ego_feature, cav_feature)        
+                ego_copy = ego_feature.repeat(cav_feature.shape[0], 1, 1, 1)
+                cav_feature = self.cdt(ego_copy, cav_feature)
+                class_logits.append(self.classifier(torch.cat((ego_feature,cav_feature),dim=0)))
+                reshaped_spatial_feature_list.append(torch.cat((ego_feature,cav_feature),dim=0))
+                
         heter_feature_2d = torch.cat(reshaped_spatial_feature_list, dim=0)
+        # class_labels = torch.tensor(class_labels).to(heter_feature_2d.device)
+        # class_labels = class_labels.unsqueeze(1)
+        class_logits = torch.cat(class_logits, dim=0)
         if self.compress:
             heter_feature_2d = self.compressor(heter_feature_2d)
 
@@ -251,6 +272,8 @@ class HeterModelBaseline(nn.Module):
 
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
-                            'dir_preds': dir_preds})
+                            'dir_preds': dir_preds,
+                            'da_feature': class_logits,
+                            'record_len': record_len,})
 
         return output_dict
