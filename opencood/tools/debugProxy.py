@@ -1,7 +1,7 @@
 import sys
 import runpy
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 os.chdir('/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
@@ -88,7 +88,9 @@ m1m3_pnpda = 'python opencood/tools/train.py -y None --model_dir  /home/junfei.z
 m1m3_where2comm = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/infer/m1m3_where2comm'
 m1m3_codebook = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m3_att'
 
-args = m1m3_codebook
+m1_att_diffcomm_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_diffcomm_archive_2025_04_17_14_44_40'
+m3_att_diffcomm_vis = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_att_diffcomm_archive_2025_04_19_10_19_32'
+args = m3_att_diffcomm_vis
 
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'

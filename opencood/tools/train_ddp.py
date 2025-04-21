@@ -185,7 +185,8 @@ def main():
                 criterion.logging(epoch, i, len(train_loader), writer, suffix="_single", iter=iter)
 
             if not opt.half:
-                final_loss.backward()
+                if final_loss.requires_grad:
+                    final_loss.backward()
                 optimizer.step()
             else:
                 scaler.scale(final_loss).backward()
