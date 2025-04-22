@@ -1,14 +1,12 @@
-name: m1_v2xvit_diffcomm
-root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/train"
-validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/validate"
-test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/test"
-
-verify_mode: False
+name: m1_base_pyramid_w_diffcomm 
+root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
+validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
+test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
 
 yaml_parser: "load_general_params"
 train_params:
-  batch_size: &batch_size 1
-  epoches: 30
+  batch_size: &batch_size 2
+  epoches: 20
   eval_freq: 2
   save_freq: 2
   max_cav: 5
@@ -43,6 +41,7 @@ heter:
           max_voxel_test: 70000
         # lidar range for each individual cav.
         cav_lidar_range: *cav_lidar
+
 
 fusion:
   core_method: 'intermediateheter'
@@ -90,10 +89,10 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline_w_diffcomm_archive
+  core_method: heter_pyramid_collab_w_diffcomm
   args:
-    ego_modality: *ego_modality
     lidar_range: *cav_lidar
+    supervise_single: False
     m1:
       core_method: *core_method_m1
       sensor_type: *sensor_type_m1
@@ -110,77 +109,17 @@ model:
           num_features: 64
 
       backbone_args:
-        layer_nums: [3, 5, 8]
-        layer_strides: [2, 2, 2]
-        num_filters: [64, 128, 256]
-        upsample_strides: [1, 2, 4]
-        num_upsample_filter: [128, 128, 128]
+        layer_nums: [3]
+        layer_strides: [2]
+        num_filters: [64]
   
       aligner_args:
         core_method: identity
-      
-      shrink_header: 
-        kernal_size: [ 3 ]
-        stride: [ 2 ]
-        padding: [ 1 ]
-        dim: [ 128 ]
-        input_dim: 384 # 128 * 3
-    gmatch: True
-    enhancer:
-      in_ch: 128        
-    message_extractor: 
-      in_ch: 128
-      out_ch: 128
-    
-    fusion_method: v2xvit 
-    v2xvit:
-      transformer:
-        encoder: &encoder
-          # number of fusion blocks per encoder layer
-          num_blocks: 1
-          # number of encoder layers
-          depth: 3
-          use_roi_mask: true
-          use_RTE: &use_RTE false
-          RTE_ratio: &RTE_ratio 0 # 2 means the dt has 100ms interval while 1 means 50 ms interval
-          # agent-wise attention
-          cav_att_config: &cav_att_config
-            dim: 128
-            use_hetero: true
-            use_RTE: *use_RTE
-            RTE_ratio: *RTE_ratio
-            heads: 8
-            dim_head: 32
-            dropout: 0.3
-          # spatial-wise attention
-          pwindow_att_config: &pwindow_att_config
-            dim: 128
-            heads: [16, 8, 4]
-            dim_head: [16, 32, 64]
-            dropout: 0.3
-            window_size: [4, 8, 16]
-            relative_pos_embedding: true
-            fusion_method: 'split_attn128'
-          # feedforward condition
-          feed_forward: &feed_forward
-            mlp_dim: 128
-            dropout: 0.3
-          sttf: &sttf
-            voxel_size: *voxel_size
-            downsample_rate: 4
-    in_head: 128
-    anchor_number: *anchor_num
-    dir_args: *dir_args
-
-    gmatch: True
-    enhancer: enhancev12
-    message_extractor: message_extractorv2
-
     diffcomm:
       model:
         embed_dim: 130
-        in_channels: 128
-        out_ch: 128
+        in_channels: 64
+        out_ch: 64
         ch: 8
         ch_mult: [1, 1]
         num_res_blocks: 2
@@ -192,6 +131,30 @@ model:
         beta_start: 0.0005
         beta_end: 0.02
         num_diffusion_timesteps: 3
+        
+    gmatch: True
+    enhancer: enhancev12
+    message_extractor: message_extractorv2
+
+    fusion_backbone: 
+      resnext: true
+      layer_nums: [3, 5, 8]
+      layer_strides: [1, 2, 2]
+      num_filters: [64, 128, 256]
+      upsample_strides: [1, 2, 4]
+      num_upsample_filter: [128, 128, 128]
+      anchor_number: *anchor_num
+
+    shrink_header: 
+      kernal_size: [ 3 ]
+      stride: [ 2 ]
+      padding: [ 1 ]
+      dim: [ 128 ]
+      input_dim: 384 # 128 * 3
+
+    in_head: 128
+    anchor_number: *anchor_num
+    dir_args: *dir_args
 
 
 loss:
@@ -202,7 +165,7 @@ loss:
       type: 'SigmoidFocalLoss'
       alpha: 0.25
       gamma: 2.0
-      weight: 2.0  #2025.3.8  : 1.0 -> 2.0 jeffrey
+      weight: 2.0
     reg:
       type: 'WeightedSmoothL1Loss'
       sigma: 3.0
@@ -214,8 +177,8 @@ loss:
       args: *dir_args
     depth:
       weight: 1.0
-    generate_weight: 1
-    gmatch_weight: 1
+
+
 
 optimizer:
   core_method: Adam
@@ -227,5 +190,5 @@ optimizer:
 lr_scheduler:
   core_method: multistep #step, multistep and Exponential support
   gamma: 0.1
-  step_size: [15, 25]
+  step_size: [10, 15]
 

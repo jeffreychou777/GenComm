@@ -30,7 +30,7 @@ class HeterPyramidCollabWMpda(nn.Module):
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-        self.fix_modules = ['cls_head', 'reg_head', 'dir_head', 'fusion_net']
+        self.fix_modules = []
         channel = 128
         p_rate = 0.0
         seg_num = args['codebook']['seg_num']

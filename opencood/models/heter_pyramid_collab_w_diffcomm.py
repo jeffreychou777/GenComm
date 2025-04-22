@@ -28,6 +28,7 @@ class HeterPyramidCollabWDiffComm(nn.Module):
     def __init__(self, args):
         super(HeterPyramidCollabWDiffComm, self).__init__()
         self.args = args
+        self.diffcomm = DiffComm(args['diffcomm'])
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
@@ -117,7 +118,7 @@ class HeterPyramidCollabWDiffComm(nn.Module):
         self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
                                   kernel_size=1) # BIN_NUM = 2
         if 'enhancer' in args and args['enhancer'] == 'enhancev12':
-            self.enhancer = Enhancerv12(128, [8, 8], 4)
+            self.enhancer = Enhancerv12(64, [8, 8], 4)
             print("use enhancev12")        
 
         # compressor will be only trainable
