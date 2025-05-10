@@ -73,8 +73,8 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
-                                                                       model_setting['backbone_args'].get('inplanes',64)))
+            setattr(self, f"backbone_{modality_name}", nn.Identity() if model_setting['backbone_args'] == 'identity' else
+                    BaseBEVBackbone(model_setting['backbone_args'], model_setting['backbone_args'].get('inplanes',64)))
 
             """
             shrink conv building
@@ -193,6 +193,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         # print(agent_modality_list)
 
         modality_count_dict = Counter(agent_modality_list)
+        print(modality_count_dict)
         modality_feature_dict = {}
         modality_message_dict = {}
 
@@ -200,7 +201,8 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             if modality_name not in modality_count_dict:
                 continue
             feature = eval(f"self.encoder_{modality_name}")(data_dict, modality_name)
-            feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+            if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
+                feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
             feature = eval(f"self.shrinker_{modality_name}")(feature)
             message = eval(f"self.message_extractor_{modality_name}")(feature)
             modality_feature_dict[modality_name] = feature
@@ -318,15 +320,17 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
         # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
         
-        heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
+        # heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
+        heter_feature_2d = gen_data_dict['pred_feature']
 
-        ##replace ego feat ure with gt_feature
-        split_gt_feature = regroup(gt_feature, record_len)
-        split_pred_feature = regroup(heter_feature_2d, record_len)
-        ego_index = 0
-        for index in range(len(split_gt_feature)):
-            heter_feature_2d[ego_index] = split_gt_feature[index][0]
-            ego_index = ego_index + split_gt_feature[index].shape[0]
+        #replace ego feat ure with gt_feature
+        # split_gt_feature = regroup(gt_feature, record_len)
+        # split_pred_feature = regroup(heter_feature_2d, record_len)
+        # ego_index = 0
+        # for index in range(len(split_gt_feature)):
+        #     heter_feature_2d[ego_index] = split_gt_feature[index][0]
+        #     ego_index = ego_index + split_gt_feature[index].shape[0]
+            
         
         if len(heter_feature_2d.shape) == 3:
             heter_feature_2d = heter_feature_2d.unsqueeze(0) ## for the case of bs=1 and only ego

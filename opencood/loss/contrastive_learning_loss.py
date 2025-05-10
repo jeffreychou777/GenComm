@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import wandb
+from opencood.visualization.vis_bevfeat import vis_bev
 
 
 class ContrastiveLearningLoss(nn.Module):
@@ -23,7 +24,11 @@ class ContrastiveLearningLoss(nn.Module):
         features_k = output_dict["features_k"]
         # (B,max_num,h,w)
         mask = target_dict["pos_region_ranges"]
-
+        # vis_bev(features_q.squeeze(0).detach().cpu().numpy(), type='ego')
+        # vis_bev(features_k.squeeze(0).detach().cpu().numpy(), type='cav')
+        # vis_bev(mask.squeeze(0).detach().cpu().numpy(), type='mask')
+        # vis_bev(conditions[0].squeeze(0).detach().cpu().numpy(), type=note + 'ego_condi')
+        # vis_bev(conditions[1].squeeze(0).detach().cpu().numpy(), type=note + 'cav_condi')
         device = features_q.device
 
         pos_mask = mask.transpose(0, 1).contiguous().unsqueeze(2)
@@ -156,9 +161,9 @@ class ContrastiveLearningLoss(nn.Module):
         neg_softmax_sim = self.loss_dict["neg_softmax_sim"]
         if pbar is None:
             print(
-                "[epoch %d] || Loss: %.4f || pos_sim: %.4f || neg_sim: %.4f||"
+                "[epoch %d][%d/%d] || Loss: %.4f || pos_sim: %.4f || neg_sim: %.4f||"
                 % (
-                    epoch,
+                    epoch, batch_id + 1, batch_len,
                     total_loss.item(),
                     pos_cos_sim.item(),
                     neg_cos_sim.item(),

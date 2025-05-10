@@ -25,7 +25,7 @@ from opencood.models.pnpda_modules.adapter import (
     TransformerDecoder,
     TransformerEncoder,
 )
-
+from opencood.visualization.vis_bevfeat import vis_bev
 import importlib
 import torchvision
 
@@ -161,9 +161,6 @@ class HeterModelBaselineWPnpda(nn.Module):
             for p in eval(f"self.{module}").parameters():
                 p.requires_grad_(False)
             eval(f"self.{module}").apply(fix_bn)
-        
-        
-    
     
     @torch.no_grad()
     def _momentum_update_key_encoder(self):
@@ -223,6 +220,10 @@ class HeterModelBaselineWPnpda(nn.Module):
         #     counting_dict[modality_name] += 1
         _, ego_features = list(modality_feature_dict.items())[0]
         _, cav_features = list(modality_feature_dict.items())[1]
+        
+        note = 'org_'
+        # vis_bev(ego_features.squeeze(0).detach().cpu().numpy(), type='ego')
+        # vis_bev(cav_features.squeeze(0).detach().cpu().numpy(), type='cav')
         
         ### PnPDA ### adapter stage
         with torch.no_grad():

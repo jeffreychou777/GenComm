@@ -361,7 +361,48 @@ class VoxelPostprocessor(BasePostprocessor):
         return {'targets': targets,
                 'pos_equal_one': pos_equal_one,
                 'neg_equal_one': neg_equal_one,}
-    
+
+    @staticmethod
+    def collate_batch_stamp(label_batch_list):
+        """
+        Customized collate function for target label generation.
+
+        Parameters
+        ----------
+        label_batch_list : list
+            The list of dictionary  that contains all labels for several
+            frames.
+
+        Returns
+        -------
+        target_batch : dict
+            Reformatted labels in torch tensor.
+        """
+        pos_equal_one = []
+        neg_equal_one = []
+        targets = []
+        for i in range(len(label_batch_list)):
+            pos_equal_one.append(torch.tensor(label_batch_list[i]["pos_equal_one"]))
+            neg_equal_one.append(torch.tensor(label_batch_list[i]["neg_equal_one"]))
+            targets.append(torch.tensor(label_batch_list[i]["targets"]))
+        # import pdb; pdb.set_trace()
+        # print(pos_equal_one)
+        # import pdb; pdb.set_trace()
+        if len(pos_equal_one) == 0:
+            pos_equal_one = torch.empty(0)
+        else:
+            pos_equal_one = torch.stack(pos_equal_one, 0)
+        if len(pos_equal_one) == 0:
+            neg_equal_one = torch.empty(0)
+        else:
+            neg_equal_one = torch.stack(neg_equal_one, 0)
+        if len(pos_equal_one) == 0:
+            targets = torch.empty(0)
+        else:
+            targets = torch.stack(targets, 0)
+
+        return {"targets": targets, "pos_equal_one": pos_equal_one, "neg_equal_one": neg_equal_one}
+
     @staticmethod
     def collate_batch_pnpda(label_batch_list):
         """

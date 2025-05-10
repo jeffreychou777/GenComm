@@ -12,10 +12,18 @@ yaml_parser: "load_general_params"
 #   save_freq: 2
 #   max_cav: 5
 
-verify_mode: false  # use small dataset to verify the correctness of the code
+# verify_mode: false  # use small dataset to verify the correctness of the code
+# train_params:
+#   batch_size: &batch_size 1
+#   epoches: 30
+#   eval_freq: 2
+#   save_freq: 2
+#   max_cav: 5
+
+verify_mode: True  # use small dataset to verify the correctness of the code
 train_params:
   batch_size: &batch_size 1
-  epoches: 30
+  epoches: 10
   eval_freq: 2
   save_freq: 2
   max_cav: 5

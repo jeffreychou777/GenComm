@@ -23,15 +23,15 @@ from opencood.models.sub_modules.codebook import UMGMQuantizer
 from opencood.models.comm_modules.where2comm import Communication
 from opencood.models.fuse_modules.fusion_in_one import regroup
 
-class HeterPyramidCollabWMpda(nn.Module):
+class HeterPyramidCollabWCodebook(nn.Module):
     def __init__(self, args):
-        super(HeterPyramidCollabWMpda, self).__init__()
+        super(HeterPyramidCollabWCodebook, self).__init__()
         self.args = args
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-        self.fix_modules = []
-        channel = 128
+        self.fix_modules = ['pyramid_backbone', 'cls_head', 'reg_head', 'dir_head', 'shrink_conv']
+        channel = 64
         p_rate = 0.0
         seg_num = args['codebook']['seg_num']
         dict_size = [args['codebook']['dict_size'], args['codebook']['dict_size'], args['codebook']['dict_size']]
@@ -41,10 +41,8 @@ class HeterPyramidCollabWMpda(nn.Module):
                            "latentHead": lambda: nn.Linear(channel, channel), "restoreHead": lambda: nn.Linear(channel, channel),
                            "dequantizationHead": lambda: nn.Linear(channel, channel), "sideHead": lambda: nn.Linear(channel, channel)})
         self.communication = Communication(args['communication'])
-        self.ego_modality = args['ego_modality']
         self.cav_range = args['lidar_range']
         self.sensor_type_dict = OrderedDict()
-
         self.cam_crop_info = {} 
 
         # setup each modality model
@@ -214,7 +212,7 @@ class HeterPyramidCollabWMpda(nn.Module):
         # visualize_feature_maps(heter_feature_2d, mode='mean', save_path=f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3/{note}ego.png')
         
                 ######Codebook#####
-        print(record_len)
+        # print(record_len)
         N, C, H, W = heter_feature_2d.shape
         heter_feature_2d_gt = heter_feature_2d.clone()
         heter_feature_2d = heter_feature_2d.permute(0, 2, 3, 1).contiguous().view(-1, C)

@@ -124,3 +124,9 @@ if __name__ == '__main__':
     in_channels = 128
     reduction_ratio = 16
     bev_feature = torch.randn(4, in_channels, 100, 352)
+
+    #params_calculation
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    num_params = count_parameters(MessageExtractorv2(in_channels, 2))
+    print(f"Number of parameters in MessageExtractorv2: {num_params}")

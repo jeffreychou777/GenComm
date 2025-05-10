@@ -246,11 +246,9 @@ class HeterModelBaselineWDiffComm(nn.Module):
         we omit self.backbone's first layer.
         """
         
-        spatial_mask = torch.any(heter_feature_2d, dim=1).to(torch.uint8).unsqueeze(1).to(heter_feature_2d.device)
         gt_feature = heter_feature_2d
-
         gen_data_dict = self.diffcomm(heter_feature_2d, conditions, record_len)
-        pred_feature = gen_data_dict['pred_feature'] * spatial_mask
+        pred_feature = gen_data_dict['pred_feature']
         output_dict.update({'gt_feature': gt_feature,
                             'pred_feature': pred_feature})
         
@@ -266,13 +264,13 @@ class HeterModelBaselineWDiffComm(nn.Module):
         
         heter_feature_2d = pred_feature
         
-        ###replace ego feat ure with gt_feature
-        split_gt_feature = regroup(gt_feature, record_len)
-        split_pred_feature = regroup(heter_feature_2d, record_len)
-        ego_index = 0
-        for index in range(len(split_gt_feature)):
-            heter_feature_2d[ego_index] = split_gt_feature[index][0]
-            ego_index = ego_index + split_gt_feature[index].shape[0]
+        # ###replace ego feat ure with gt_feature
+        # split_gt_feature = regroup(gt_feature, record_len)
+        # split_pred_feature = regroup(heter_feature_2d, record_len)
+        # ego_index = 0
+        # for index in range(len(split_gt_feature)):
+        #     heter_feature_2d[ego_index] = split_gt_feature[index][0]
+        #     ego_index = ego_index + split_gt_feature[index].shape[0]
     
         
  

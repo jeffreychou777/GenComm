@@ -19,7 +19,7 @@ def vis_bev(bev_feature, type, min=None, max=None, normalize=False):
     plt.imshow(Bev, cmap='viridis', vmin=vmin, vmax=vmax, origin='lower')
     plt.axis('off')
     plt.colorbar()
-    plt.savefig(f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3_diffcomm/{type}.png', dpi=500)
+    plt.savefig(f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_codebook/{type}.png', dpi=500)
     plt.close()
 
 

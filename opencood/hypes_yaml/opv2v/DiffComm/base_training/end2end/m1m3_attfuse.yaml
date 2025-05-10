@@ -23,7 +23,7 @@ train_params:
 comm_range: 70
 input_source: ['lidar', 'camera', 'depth']
 label_type: 'lidar'
-cav_lidar_range: &cav_lidar [-102.4, -102.4, -3, 102.4, 102.4, 1]
+cav_lidar_range: &cav_lidar [-102.4, -51.2, -3, 102.4, 51.2, 1]
 
 add_data_extension: ['bev_visibility.png']
 

@@ -512,6 +512,69 @@ def project_world_objects(object_dict,
         if bbx_lidar.shape[0] > 0:
             output_dict.update({object_id: bbx_lidar})
 
+def project_world_objects_stamp(object_dict,
+                          output_dict,
+                          lidar_pose,
+                          lidar_range,
+                          order,
+                          enlarge_z=False,
+                          mask_outside_range=True):
+    """
+    Project the objects under world coordinates into another coordinate
+    based on the provided extrinsic.
+
+    Parameters
+    ----------
+    object_dict : dict
+        The dictionary contains all objects surrounding a certain cav.
+
+    output_dict : dict
+        key: object id, value: object bbx (xyzlwhyaw).
+
+    lidar_pose : list
+        (6, ), lidar pose under world coordinate, [x, y, z, roll, yaw, pitch].
+
+    lidar_range : list
+         [minx, miny, minz, maxx, maxy, maxz]
+
+    order : str
+        'lwh' or 'hwl'
+    """
+    for object_id, object_content in object_dict.items():
+        location = object_content['location']
+        rotation = object_content['angle']
+        center = [0,0,0] if 'center' not in object_content else object_content['center']
+        extent = object_content['extent']
+
+        object_pose = [location[0] + center[0],
+                       location[1] + center[1],
+                       location[2] + center[2],
+                       rotation[0], rotation[1], rotation[2]]
+
+        object2lidar = x1_to_x2(object_pose, lidar_pose)
+
+        # shape (3, 8)
+        bbx = create_bbx(extent).T
+        # bounding box under ego coordinate shape (4, 8)
+        bbx = np.r_[bbx, [np.ones(bbx.shape[1])]]
+
+        # project the 8 corners to world coordinate
+        bbx_lidar = np.dot(object2lidar, bbx).T
+        # bbx_lidar = bbx.T
+        bbx_lidar = np.expand_dims(bbx_lidar[:, :3], 0)
+        bbx_lidar = corner_to_center(bbx_lidar, order=order)
+
+        if enlarge_z:
+            lidar_range_z_larger = copy.deepcopy(lidar_range)
+            lidar_range_z_larger[2] -= 10
+            lidar_range_z_larger[5] += 10
+            lidar_range = lidar_range_z_larger
+        if mask_outside_range:
+            bbx_lidar = mask_boxes_outside_range_numpy(bbx_lidar,
+                                                    lidar_range,
+                                                    order)
+        if bbx_lidar.shape[0] > 0:
+            output_dict.update({object_id: bbx_lidar})
 
 def project_world_objects_v2x(object_dict,
                           output_dict,
@@ -1265,6 +1328,75 @@ def box_is_visible(bbx_lidar, visibility_map):
 
     return visibility_map[py, px] > 0
 
+def project_world_visible_objects_stamp(object_dict,
+                          output_dict,
+                          lidar_pose,
+                          lidar_range,
+                          order,
+                          visibility_map,
+                          enlarge_z = False,
+                          mask_outside_range = True):
+    """
+    It's used by CameraDataset. Filtered by visibility map.
+
+    Project the objects under world coordinates into another coordinate
+    based on the provided extrinsic.
+
+    Parameters
+    ----------
+    object_dict : dict
+        The dictionary contains all objects surrounding a certain cav.
+
+    output_dict : dict
+        key: object id, value: object bbx (xyzlwhyaw).
+
+    lidar_pose : list
+        (6, ), lidar pose under world coordinate, [x, y, z, roll, yaw, pitch].
+
+    lidar_range : list
+         [minx, miny, minz, maxx, maxy, maxz]
+
+    order : str
+        'lwh' or 'hwl'
+
+    visibility_map : np.ndarray
+        for OPV2V, its 256*256 resolution. 0.39m per pixel. heading up.
+    """
+    for object_id, object_content in object_dict.items():
+        location = object_content['location']
+        rotation = object_content['angle']
+        center = [0,0,0] if 'center' not in object_content else object_content['center']
+        extent = object_content['extent']
+
+        object_pose = [location[0] + center[0],
+                       location[1] + center[1],
+                       location[2] + center[2],
+                       rotation[0], rotation[1], rotation[2]]
+
+
+        object2lidar = x1_to_x2(object_pose, lidar_pose)
+
+        # shape (3, 8)
+        bbx = create_bbx(extent).T
+        # bounding box under ego coordinate shape (4, 8)
+        bbx = np.r_[bbx, [np.ones(bbx.shape[1])]]
+
+        # project the 8 corners to world coordinate
+        bbx_lidar = np.dot(object2lidar, bbx).T
+        bbx_lidar = np.expand_dims(bbx_lidar[:, :3], 0)
+        bbx_lidar = corner_to_center(bbx_lidar, order=order)
+        if enlarge_z:
+            lidar_range_z_larger = copy.deepcopy(lidar_range)
+            lidar_range_z_larger[2] -= 10
+            lidar_range_z_larger[5] += 10
+            lidar_range = lidar_range_z_larger
+        if mask_outside_range:
+            bbx_lidar = mask_boxes_outside_range_numpy(bbx_lidar,
+                                                    lidar_range,
+                                                    order)
+
+        if bbx_lidar.shape[0] > 0 and box_is_visible(bbx_lidar, visibility_map):
+            output_dict.update({object_id: bbx_lidar})
 
 def project_world_visible_objects(object_dict,
                           output_dict,

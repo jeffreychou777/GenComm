@@ -139,9 +139,9 @@ def merge_dict_diffcomm(single_model_dict, stage1_model_dict):
     for key in single_model_dict:
         # remove keys like 'layers_m4.resnet.layer2.0.bn1.bias' / 'cls_head_m4.weight' / 'shrink_conv_m4.weight'
         # from single_model_dict
-        if 'layers_m' in key or 'head_m' in key or 'shrink_conv_m' in key: 
-            print(f"Pass {key}")
-            continue
+        # if 'layers_m' in key or 'head_m' in key or 'shrink_conv_m' in key: 
+        #     print(f"Pass {key}")
+        #     continue
         merged_dict[key] = single_model_dict[key]
 
     for key in stage1_keys:
@@ -168,17 +168,67 @@ def merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir
         single_model_dict = torch.load(single_model_path, map_location='cpu')
     stage1_model_path = get_model_path_from_dir(stage1_model_dir)
     stage1_model_dict = torch.load(stage1_model_path, map_location='cpu')
-    # 对 stage1_model_dict 中的 message_extractor 参数加后缀 _m1
+    
     for key in list(stage1_model_dict.keys()):
-        if key.startswith('message_extractor.'):
-            new_key = key.replace('message_extractor.', 'message_extractor_m1.')
+        if key.startswith('encoder_m3.'):
+            new_key = key.replace('encoder_m3.', 'encoder_m0.')
+            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
+    for key in list(stage1_model_dict.keys()):
+        if key.startswith('backbone_m3.'):
+            new_key = key.replace('backbone_m3.', 'backbone_m0.')
+            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
+    for key in list(stage1_model_dict.keys()):
+        if key.startswith('shrinker_m3.'):
+            new_key = key.replace('shrinker_m3.', 'shrinker_m0.')
+            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
+    
+    
+    # 对 stage1_model_dict 中的 message_extractor 参数加后缀 _m0
+    for key in list(stage1_model_dict.keys()):
+        if key.startswith('fusion_net.'):
+            new_key = key.replace('fusion_net.', 'fusion_net_m0.')
             stage1_model_dict[new_key] = stage1_model_dict.pop(key)
 
-    # # 对 single_model_dict 中的 message_extractor 参数加后缀 _m3
-    # for key in list(single_model_dict.keys()):
-    #     if key.startswith('message_extractor.'):
-    #         new_key = key.replace('message_extractor.', 'message_extractor_m2.')
-    #         single_model_dict[new_key] = single_model_dict.pop(key)
+    # 对 single_model_dict 中的 message_extractor 参数加后缀 _mx
+    for key in list(single_model_dict.keys()):
+        if key.startswith('fusion_net.'):
+            new_key = key.replace('fusion_net.', 'fusion_net_m3.')
+            single_model_dict[new_key] = single_model_dict.pop(key)
+            
+        # 对 stage1_model_dict 中的 message_extractor 参数加后缀 _m0
+    for key in list(stage1_model_dict.keys()):
+        if key.startswith('cls_head.'):
+            new_key = key.replace('cls_head.', 'cls_head_m0.')
+            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
+
+    # 对 single_model_dict 中的 message_extractor 参数加后缀 _mx
+    for key in list(single_model_dict.keys()):
+        if key.startswith('cls_head.'):
+            new_key = key.replace('cls_head.', 'cls_head_m3.')
+            single_model_dict[new_key] = single_model_dict.pop(key)
+            
+    for key in list(stage1_model_dict.keys()):
+        if key.startswith('reg_head.'):
+            new_key = key.replace('reg_head.', 'reg_head_m0.')
+            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
+
+    # 对 single_model_dict 中的 message_extractor 参数加后缀 _mx
+    for key in list(single_model_dict.keys()):
+        if key.startswith('reg_head.'):
+            new_key = key.replace('reg_head.', 'reg_head_m3.')
+            single_model_dict[new_key] = single_model_dict.pop(key)
+
+    for key in list(stage1_model_dict.keys()):
+        if key.startswith('dir_head.'):
+            new_key = key.replace('dir_head.', 'dir_head_m0.')
+            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
+
+    # 对 single_model_dict 中的 message_extractor 参数加后缀 _mx
+    for key in list(single_model_dict.keys()):
+        if key.startswith('dir_head.'):
+            new_key = key.replace('dir_head.', 'dir_head_m3.')
+            single_model_dict[new_key] = single_model_dict.pop(key)
+            
     
     merged_dict = merge_dict_diffcomm(single_model_dict, stage1_model_dict)
     
@@ -290,10 +340,10 @@ if __name__ == "__main__":
     # change_modality_key_name(log_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DAIR_m3_attfuse_wo_diffcomm_2025_04_28_06_44_56')
     
     
-    # single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m4_base_att_w_diffcomm_2025_05_04_02_26_51'
-    # stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_diffcomm_archive_2025_04_17_14_44_40'
-    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_att'
-    # merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
+    single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m4_base_att_wo_diffcomm_2025_05_03_08_38_14'
+    stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_att_wo_diffcomm_2025_04_11_01_56_53'  # protocol
+    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m4_att'
+    merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
     
     
     # add_suffix_to_keys_save(log_path = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_diffcomm_archive_2025_04_17_14_44_40',
@@ -308,11 +358,3 @@ if __name__ == "__main__":
     # dir_list = [m2_dir, m3_dir, m4_dir, m1_dir]
     # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m2m3m4_att'
     # merge_and_save_final(dir_list, output_model_dir)
-    
-    m1_m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2_v2xvit'
-    m1_m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m3_v2xvit'
-    m1_m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_v2xvit'
-        
-    dir_list = [m1_m4_dir, m1_m3_dir, m1_m2_dir]
-    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2m3m4_v2xvit_infer'
-    merge_and_save_final(dir_list, output_model_dir)

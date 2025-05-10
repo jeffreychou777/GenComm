@@ -132,7 +132,7 @@ model:
         dim: [ 128 ]
         input_dim: 128 # 128 * 3
 
-    gmatch: True
+    gmatch: false
     enhancer: enhancev12
     message_extractor: message_extractorv2
 

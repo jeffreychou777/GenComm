@@ -1,39 +1,38 @@
-name: m1_v2xvit_diffcomm
-root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/train"
-validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/validate"
-test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset2/OPV2V/test"
-
-verify_mode: false
+name: DAIR_m1m3_e2e_att
+data_dir: "opencood/dataset/dair_v2x/cooperative-vehicle-infrastructure"
+root_dir: "opencood/dataset/dair_v2x/cooperative-vehicle-infrastructure/train.json"
+validate_dir: "opencood/dataset/dair_v2x/cooperative-vehicle-infrastructure/val.json"
+test_dir: "opencood/dataset/dair_v2x/cooperative-vehicle-infrastructure/val.json"
 
 yaml_parser: "load_general_params"
 train_params:
-  batch_size: &batch_size 1
+  batch_size: &batch_size 2
   epoches: 30
   eval_freq: 2
   save_freq: 2
-  max_cav: 5
+  max_cav: 2
 
+# verify_mode: True
+# yaml_parser: "load_general_params"
 # train_params:
 #   batch_size: &batch_size 1
-#   epoches: 10
-#   eval_freq: 2
-#   save_freq: 2
+#   epoches: 5
+#   eval_freq: 1
+#   save_freq: 1
 #   max_cav: 5
 
-comm_range: 70
+comm_range: 100
 input_source: ['lidar']
 label_type: 'lidar'
 cav_lidar_range: &cav_lidar [-102.4, -51.2, -3, 102.4, 51.2, 1]
 
 
 heter:
-  assignment_path: "opencood/modality_assign/opv2v_4modality.json" 
-  ego_modality: &ego_modality "m1"
+  assignment_path: null
+  ego_modality: &ego_modality "m1&m3"
   mapping_dict:
     m1: m1
-    m2: m1
-    m3: m1
-    m4: m1
+    m2: m3
   modality_setting:
     m1:
       sensor_type: &sensor_type_m1 'lidar'
@@ -50,10 +49,46 @@ heter:
           max_voxel_test: 70000
         # lidar range for each individual cav.
         cav_lidar_range: *cav_lidar
+    # m2:
+    #   sensor_type: &sensor_type_m2 'camera'
+    #   core_method: &core_method_m2 "lift_splat_shoot"
+
+    #   grid_conf: &grid_conf_m2
+    #     xbound: [-51.2, 51.2, 0.4]   # Limit the range of the x direction and divide the grids
+    #     ybound: [-51.2, 51.2, 0.4]   # Limit the range of the y direction and divide the grids
+    #     zbound: [-10, 10, 20.0]   # Limit the range of the z direction and divide the grids
+    #     ddiscr: [2, 50, 48]
+    #     mode: 'LID'
+    #   data_aug_conf: &data_aug_conf_m2
+    #     resize_lim: [0.65, 0.7]
+    #     final_dim: [384, 512]
+    #     rot_lim: [-3.6, 3.6]
+    #     H: 600
+    #     W: 800
+    #     rand_flip: False
+    #     bot_pct_lim: [0.0, 0.05]
+    #     cams: ['camera0', 'camera1', 'camera2', 'camera3']
+    #     Ncams: 4
+
+    m3:
+      sensor_type: &sensor_type_m3 'lidar'
+      core_method: &core_method_m3 "second"
+
+      # lidar requires preprocess
+      preprocess:
+        # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
+        core_method: 'SpVoxelPreprocessor'
+        args:
+          voxel_size: &voxel_size_m3 [0.1, 0.1, 0.1]
+          max_points_per_voxel: 5
+          max_voxel_train: 32000
+          max_voxel_test: 70000
+        # lidar range for each individual cav.
+        cav_lidar_range: *cav_lidar
 
 fusion:
   core_method: 'intermediateheter'
-  dataset: 'opv2v'
+  dataset: 'dairv2x'
   args: 
     proj_first: false
     grid_conf: None # place-holder
@@ -64,7 +99,7 @@ preprocess:
   # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
   core_method: 'SpVoxelPreprocessor'
   args:
-    voxel_size: [0.4, 0.4, 4] # useful
+    voxel_size: [0.4, 0.4, 5] # useful
     max_points_per_voxel: 1 # useless
     max_voxel_train: 1 # useless
     max_voxel_test: 1 # useless
@@ -97,10 +132,10 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline_w_diffcomm
+  core_method: heter_model_baseline
   args:
-    ego_modality: *ego_modality
     lidar_range: *cav_lidar
+    ego_modality: *ego_modality
     m1:
       core_method: *core_method_m1
       sensor_type: *sensor_type_m1
@@ -123,16 +158,44 @@ model:
         upsample_strides: [1, 2, 4]
         num_upsample_filter: [128, 128, 128]
   
-      aligner_args:
-        core_method: identity
-      
       shrink_header: 
         kernal_size: [ 3 ]
         stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 128 ]
         input_dim: 384 # 128 * 3
-    
+
+    m3:
+      core_method: *core_method_m3
+      sensor_type: *sensor_type_m3
+
+      encoder_args:
+        voxel_size: *voxel_size_m3
+        lidar_range: *cav_lidar
+        mean_vfe:
+          num_point_features: 4
+        spconv:
+          num_features_in: 4
+          num_features_out: 64
+        map2bev:
+          feature_num: 128
+
+      backbone_args:
+        layer_nums: [3, 5, 8]
+        layer_strides: [1, 2, 2]
+        num_filters: [64, 128, 256]
+        upsample_strides: [1, 2, 4]
+        num_upsample_filter: [128, 128, 128]
+        inplanes: 128
+  
+      shrink_header: 
+        kernal_size: [ 3 ]
+        stride: [ 2 ]
+        padding: [ 1 ]
+        dim: [ 128 ]
+        input_dim: 384 # 128 * 3
+
+
     fusion_method: v2xvit 
     v2xvit:
       transformer:
@@ -168,42 +231,23 @@ model:
             dropout: 0.3
           sttf: &sttf
             voxel_size: *voxel_size
-            downsample_rate: 4
+            downsample_rate: 4 
+    
     in_head: 128
+
     anchor_number: *anchor_num
     dir_args: *dir_args
 
-    gmatch: False
-    enhancer: enhancev12
-    message_extractor: message_extractorv2
-
-    diffcomm:
-      model:
-        embed_dim: 130
-        in_channels: 128
-        out_ch: 128
-        ch: 8
-        ch_mult: [1, 1]
-        num_res_blocks: 2
-        attn_resolutions: [16]
-        dropout: 0.0
-        resamp_with_conv: True
-      diffusion:
-        beta_schedule: linear
-        beta_start: 0.0005
-        beta_end: 0.02
-        num_diffusion_timesteps: 3
-
 
 loss:
-  core_method: point_pillar_diffcomm_loss
+  core_method: point_pillar_depth_loss
   args:
     pos_cls_weight: 2.0
     cls:
       type: 'SigmoidFocalLoss'
       alpha: 0.25
       gamma: 2.0
-      weight: 2.0  #2025.3.8  : 1.0 -> 2.0 jeffrey
+      weight: 2.0   # matter?
     reg:
       type: 'WeightedSmoothL1Loss'
       sigma: 3.0
@@ -215,8 +259,6 @@ loss:
       args: *dir_args
     depth:
       weight: 1.0
-    generate_weight: 1
-    gmatch_weight: 1
 
 optimizer:
   core_method: Adam
@@ -229,4 +271,5 @@ lr_scheduler:
   core_method: multistep #step, multistep and Exponential support
   gamma: 0.1
   step_size: [15, 25]
+  # step_size: [3]
 

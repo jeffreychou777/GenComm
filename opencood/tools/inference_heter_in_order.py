@@ -45,8 +45,8 @@ def test_parser():
     parser.add_argument('--save_npy', action='store_true',
                         help='whether to save prediction and gt result'
                              'in npy file')
-    parser.add_argument('--range', type=str, default="204.8,102.4",
-                        help="detection range is [-204.8, +204.8, -102.4, +102.4]")
+    parser.add_argument('--range', type=str, default="102.4,51.2",
+                        help="detection range is [-102.4, +102.4, -51.2, +51.2]")
     parser.add_argument('--no_score', action='store_true',
                         help="whether print the score of prediction")
     parser.add_argument('--use_cav', type=str, default="[1,2,3,4]",
@@ -285,7 +285,9 @@ def main():
             torch.cuda.empty_cache()
 
         _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
-                                    opt.model_dir, infer_info)
+                                    opt.model_dir, global_sort_detections=True, infer_info = infer_info)
+        _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
+                                    opt.model_dir, global_sort_detections=False, infer_info = infer_info)
 
 
 
