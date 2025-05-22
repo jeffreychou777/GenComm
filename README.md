@@ -1,5 +1,5 @@
-# HEAL (HEterogeneous ALliance)
-[ICLR2024] HEAL: An Extensible Framework for Open Heterogeneous Collaborative Perception
+# GenComm (**Gen**erative **Comm**unication mechanism)s
+Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism
 
 This repo is also a **unified** and **integrated** multi-agent collaborative perception framework for **LiDAR-based**, **camera-based** and **heterogeneous** setting! 
 > 这个仓库同时是一个**统一**且**高集成**的多智能体协作感知框架，适用于 **纯LiDAR**、**纯Camera**和**异构** 实验设置。
