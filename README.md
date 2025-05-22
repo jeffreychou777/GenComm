@@ -1,4 +1,4 @@
-# GenComm (**Gen**erative **Comm**unication mechanism)s
+# GenComm (**Gen**erative **Comm**unication mechanism)
 Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism
 
 This repo is also a **unified** and **integrated** multi-agent collaborative perception framework for **LiDAR-based**, **camera-based** and **heterogeneous** setting! 
