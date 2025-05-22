@@ -204,6 +204,9 @@ class DiffusionUNet(nn.Module):
         num_res_blocks = config.model.num_res_blocks
         attn_resolutions = config.model.attn_resolutions
         dropout = config.model.dropout
+        # if config.model.condition_channels is not None:
+        #     in_channels = config.model.in_channels + config.model.condition_channels
+        # else:
         in_channels = config.model.in_channels + 2
         resolution = 128
         resamp_with_conv = config.model.resamp_with_conv

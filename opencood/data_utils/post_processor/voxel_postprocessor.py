@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from torch.nn.functional import sigmoid
 import torch.nn.functional as F
-
+from scipy.special import softmax
 from opencood.data_utils.post_processor.base_postprocessor \
     import BasePostprocessor
 from opencood.utils import box_utils
@@ -27,6 +27,7 @@ class VoxelPostprocessor(BasePostprocessor):
         super(VoxelPostprocessor, self).__init__(anchor_params, train)
         self.anchor_num = self.params['anchor_args']['num']
         self.max_num = self.params['max_num']
+        self.aggregation = getattr(self.params, "aggregation", "nms")
 
     def generate_anchor_box(self):
         # load_voxel_params and load_point_pillar_params leads to the same anchor
@@ -443,7 +444,192 @@ class VoxelPostprocessor(BasePostprocessor):
                 'pos_equal_one': pos_equal_one,
                 'neg_equal_one': neg_equal_one,
                 'pos_region_ranges': pos_region_ranges}
+    
+    ## this 3 functions are used for stamp
+    def post_process_stamp(self, data_dict, output_dict, agent_idx=0):
+        """
+        Process the outputs of the model to 2D/3D bounding box.
+        Step1: convert each cav's output to bounding box format
+        Step2: project the bounding boxes to ego space.
+        Step:3 NMS
 
+        For early and intermediate fusion,
+            data_dict only contains ego.
+
+        For late fusion,
+            data_dcit contains all cavs, so we need transformation matrix.
+
+
+        Parameters
+        ----------
+        data_dict : dict
+            The dictionary containing the origin input data of model.
+
+        output_dict :dict
+            The dictionary containing the output of the model.
+
+        Returns
+        -------
+        pred_box3d_tensor : torch.Tensor
+            The prediction bounding box tensor after NMS.
+        gt_box3d_tensor : torch.Tensor
+            The groundtruth bounding box tensor.
+        """
+        # the final bounding box list
+        pred_box3d_list = []
+        pred_box2d_list = []
+        for cav_id in output_dict.keys():
+            if cav_id in data_dict:
+                cav_content = data_dict[cav_id]
+            else:
+                Warning(f"No {cav_id} in data_dict. Using ego instead.")
+                cav_content = data_dict["ego"]
+            boxes2d_score, projected_boxes3d = self.post_process_single(cav_content, output_dict[cav_id], agent_idx)
+
+        pred_box2d_list.append(boxes2d_score)
+        pred_box3d_list.append(projected_boxes3d)
+
+        pred_box3d_tensor, scores = self.post_process_output(pred_box2d_list, pred_box3d_list)
+
+        return pred_box3d_tensor, scores
+    def post_process_single(self, cav_content, output_dict, agent_idx=0):
+        # the transformation matrix to ego space
+        if len(cav_content["transformation_matrix"].shape) > 2:
+            transformation_matrix = torch.inverse(cav_content["transformation_matrix"][agent_idx])
+        else:
+            transformation_matrix = cav_content["transformation_matrix"]
+
+        # rename variable
+        if "psm" in output_dict:
+            output_dict["cls_preds"] = output_dict["psm"]
+        if "rm" in output_dict:
+            output_dict["reg_preds"] = output_dict["rm"]
+        if "dm" in output_dict:
+            output_dict["dir_preds"] = output_dict["dm"]
+        # (H, W, anchor_num, 7)
+        anchor_box = cav_content["anchor_box"]
+        # classification probability
+        prob = output_dict["cls_preds"]
+        prob = F.sigmoid(prob.permute(0, 2, 3, 1))
+        prob = prob.reshape(1, -1)
+
+        # regression map
+        reg = output_dict["reg_preds"]
+        # convert regression map back to bounding box
+        if len(reg.shape) == 4:  # anchor-based. PointPillars, SECOND
+            batch_box3d = self.delta_to_boxes3d(reg, anchor_box)
+        else:  # anchor-free. CenterPoint
+            batch_box3d = reg.view(1, -1, 7)
+
+        mask = torch.gt(prob, self.params["target_args"]["score_threshold"])
+        mask = mask.view(1, -1)
+        mask_reg = mask.unsqueeze(2).repeat(1, 1, 7)
+
+        # during validation/testing, the batch size should be 1
+        assert batch_box3d.shape[0] == 1
+            
+        boxes3d = torch.masked_select(batch_box3d[0], mask_reg[0]).view(-1, 7)
+        scores = torch.masked_select(prob[0], mask[0])
+
+        # adding dir classifier
+        if "dir_preds" in output_dict.keys() and len(boxes3d) != 0:
+            dir_offset = self.params["dir_args"]["dir_offset"]
+            num_bins = self.params["dir_args"]["num_bins"]
+
+            dm = output_dict["dir_preds"]  # [N, H, W, 4]
+            dir_cls_preds = dm.permute(0, 2, 3, 1).contiguous().reshape(1, -1, num_bins)  # [1, N*H*W*2, 2]
+            dir_cls_preds = dir_cls_preds[mask]
+            # if rot_gt > 0, then the label is 1, then the regression target is [0, 1]
+            dir_labels = torch.max(dir_cls_preds, dim=-1)[
+                1
+            ]  # indices. shape [1, N*H*W*2].  value 0 or 1. If value is 1, then rot_gt > 0
+
+            period = 2 * np.pi / num_bins  # pi
+            dir_rot = limit_period(boxes3d[..., 6] - dir_offset, 0, period)  # 限制在0到pi之间
+            boxes3d[..., 6] = dir_rot + dir_offset + period * dir_labels.to(dir_cls_preds.dtype)  # 转化0.25pi到2.5pi
+            boxes3d[..., 6] = limit_period(boxes3d[..., 6], 0.5, 2 * np.pi)  # limit to [-pi, pi]
+
+        if "iou_preds" in output_dict.keys() and len(boxes3d) != 0:
+            iou = torch.sigmoid(output_dict["iou_preds"].permute(0, 2, 3, 1).contiguous()).reshape(1, -1)
+            iou = torch.clamp(iou, min=0.0, max=1.0)
+            iou = (iou + 1) * 0.5
+            scores = scores * torch.pow(iou.masked_select(mask), 4)
+
+        # convert output to bounding box
+        if len(boxes3d) != 0:
+            # (N, 8, 3)
+            boxes3d_corner = box_utils.boxes_to_corners_3d(boxes3d, order=self.params["order"])
+
+            # STEP 2
+            # (N, 8, 3)
+            projected_boxes3d = boxes3d_corner
+            # projected_boxes3d = box_utils.project_box3d(boxes3d_corner, transformation_matrix)
+            # convert 3d bbx to 2d, (N,4)
+            projected_boxes2d = box_utils.corner_to_standup_box_torch(projected_boxes3d)
+            # (N, 5)
+            boxes2d_score = torch.cat((projected_boxes2d, scores.unsqueeze(1)), dim=1)
+        else:
+            boxes2d_score = torch.zeros((0, 5)).to(boxes3d.device)
+            projected_boxes3d = torch.zeros((0, 8, 3)).to(boxes3d.device)
+
+        return boxes2d_score, projected_boxes3d
+    def post_process_output(self, pred_box2d_list, pred_box3d_list):
+        if len(pred_box2d_list) == 0 or len(pred_box3d_list) == 0:
+            return None, None
+        # shape: (N, 5)
+        pred_box2d_list = torch.vstack(pred_box2d_list)
+        # scores
+        scores = pred_box2d_list[:, -1]
+        # predicted 3d bbx
+        pred_box3d_tensor = torch.vstack(pred_box3d_list)
+        # remove large bbx
+        keep_index_1 = box_utils.remove_large_pred_bbx(pred_box3d_tensor)
+        keep_index_2 = box_utils.remove_bbx_abnormal_z(pred_box3d_tensor)
+        keep_index = torch.logical_and(keep_index_1, keep_index_2)
+
+        pred_box3d_tensor = pred_box3d_tensor[keep_index]
+        scores = scores[keep_index]
+
+        # STEP3
+        # nms
+        if self.aggregation == "nms":
+            keep_index = box_utils.nms_rotated(pred_box3d_tensor, scores, self.params["nms_thresh"])
+
+            pred_box3d_tensor = pred_box3d_tensor[keep_index]
+
+            # select cooresponding score
+            scores = scores[keep_index]
+
+            # filter out the prediction out of the range. with z-dim
+            pred_box3d_np = pred_box3d_tensor.cpu().numpy()
+            pred_box3d_np, mask = box_utils.mask_boxes_outside_range_numpy(
+                pred_box3d_np, self.params["gt_range"], order=None, return_mask=True
+            )
+            pred_box3d_tensor = torch.from_numpy(pred_box3d_np).to(device=pred_box3d_tensor.device)
+            scores = scores[mask]
+
+            assert scores.shape[0] == pred_box3d_tensor.shape[0]
+        elif self.aggregation == "psa":
+            iou_mat = box_utils.compute_self_iou_mat(preds)
+            clusters, visited, selected = [], [], []
+            for idx, ious in enumerate(iou_mat):
+                if idx in visited:
+                    continue
+                neighbor_idxs = np.nonzero(ious)[0]
+                clusters.append(neighbor_idxs)
+                visited.extend(neighbor_idxs)
+            for cluster in clusters:
+                sub_iou_mat = iou_mat[np.ix_(cluster, cluster)]
+                sub_probs = probs[cluster]
+                values = sub_iou_mat.dot(sub_probs)
+                soft_bools = softmax(values / 1e-6)
+                bools = soft_bools > 0.5
+                selected.extend(cluster[bools])
+            preds = preds[selected]
+            probs = probs[selected]
+
+        return pred_box3d_tensor, scores
+    
     def post_process(self, data_dict, output_dict):
         """
         Process the outputs of the model to 2D/3D bounding box.

@@ -1,7 +1,7 @@
 import sys
 import runpy
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 os.chdir('/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
@@ -20,7 +20,18 @@ m1m3_codebook_where2comm = 'python opencood/tools/train.py -y None --model_dir /
 m1m4_diffcomm_align = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_v2xvit'
 
 m0m3_stamp = 'python opencood/tools/train_adapter.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m3_att'
-args = m0m3_stamp
+
+diffcomm_align_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m3_att'
+stamp_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/infer_my'
+backalign_infer ='python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/m1m4_att'
+mpda_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/m1m3_att'
+codebook_infer = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m3_att'
+
+time_delay = 'python opencood/tools/inference_w_delay.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_v2xvit'
+
+vis_diffcomm = 'python opencood/tools/inference_heter_in_order.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2m3m4_v2xvit_infer --use_cav [3]'
+vis_codebook = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m3_v2xvit'
+args =time_delay
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 

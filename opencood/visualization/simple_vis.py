@@ -126,9 +126,9 @@ def visualize(infer_result, pcd, pc_range, save_path, method='3d', left_hand=Fal
                     else:
                         color = (66,66,66)
 
-                    render_dict = {'m1': 'L1', 'm2':"C1", 'm3':'L2', 'm4':'C2'}
+                    render_dict = {'m1': 'L-P', 'm2':"C-E", 'm3':'L-S', 'm4':'C-R'}
                     canvas.draw_boxes(cav_box_np[i:i+1], colors=color, texts=[modality_name])
-                    # canvas.draw_boxes(cav_box_np[i:i+1], colors=color, texts=[render_dict[modality_name]], box_text_size=1.5, box_line_thickness=5) # paper visualization
+                    # canvas.draw_boxes(cav_box_np[i:i+1], colors=color, texts=[render_dict[modality_name]], box_text_size=1.5, box_line_thickness=3) # paper visualization
 
 
 

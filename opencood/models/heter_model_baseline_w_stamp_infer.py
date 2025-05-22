@@ -20,34 +20,19 @@ from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.fuse_modules.fusion_in_one import MaxFusion, AttFusion, DiscoFusion, V2VNetFusion, V2XViTFusion, CoBEVT, Where2commFusion, Who2comFusion
 from opencood.utils.transformation_utils import normalize_pairwise_tfm
 from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
-from opencood.visualization.vis_bevfeat import vis_bev, visualize_feature_maps
+from opencood.models.stamp_modules.adapter import Adapter, Reverter
 import importlib
 import torchvision
-from opencood.models.sub_modules.codebook import ChannelCompressor
-from opencood.models.sub_modules.codebook import UMGMQuantizer
-from opencood.models.comm_modules.where2comm import Communication
-from opencood.models.fuse_modules.fusion_in_one import regroup
 
-
-class HeterModelBaselineWCodebook(nn.Module):
+class HeterModelBaselineWStampInfer(nn.Module):
     def __init__(self, args):
-        super(HeterModelBaselineWCodebook, self).__init__()
+        super(HeterModelBaselineWStampInfer, self).__init__()
         self.args = args
+        self.fix_modules = []
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-        
-        self.fix_modules = ['fusion_net', 'cls_head', 'reg_head', 'dir_head']
-        channel = 128
-        p_rate = 0.0
-        seg_num = args['codebook']['seg_num']
-        dict_size = [args['codebook']['dict_size'], args['codebook']['dict_size'], args['codebook']['dict_size']]
-        
-        self.coodbook = UMGMQuantizer(channel, seg_num, dict_size, p_rate,
-                          {"latentStageEncoder": lambda: nn.Linear(channel, channel), "quantizationHead": lambda: nn.Linear(channel, channel),
-                           "latentHead": lambda: nn.Linear(channel, channel), "restoreHead": lambda: nn.Linear(channel, channel),
-                           "dequantizationHead": lambda: nn.Linear(channel, channel), "sideHead": lambda: nn.Linear(channel, channel)})
-        self.communication = Communication(args['communication'])
+
         self.ego_modality = args['ego_modality']
 
         self.cav_range = args['lidar_range']
@@ -81,15 +66,27 @@ class HeterModelBaselineWCodebook(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", nn.Identity() if model_setting['backbone_args'] == 'identity' else
-                    BaseBEVBackbone(model_setting['backbone_args'], model_setting['backbone_args'].get('inplanes',64)))
+            setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
+                                                                       model_setting['backbone_args'].get('inplanes',64)))
 
             """
             shrink conv building
             """
             setattr(self, f"shrinker_{modality_name}", DownsampleConv(model_setting['shrink_header']))
-            self.fix_modules += [f"shrinker_{modality_name}", f"encoder_{modality_name}", f"backbone_{modality_name}"]
-
+            
+            """
+            Adapter Reverter building
+            """
+            setattr(self, f"adapter_{modality_name}", Adapter(model_setting["adapter"]))
+            setattr(self, f"reverter_{modality_name}", Reverter(model_setting["reverter"]))
+            
+            self.fix_modules.append(f"encoder_{modality_name}")
+            self.fix_modules.append(f"backbone_{modality_name}")
+            self.fix_modules.append(f"shrinker_{modality_name}")
+            if modality_name != self.ego_modality:
+                self.fix_modules.append(f"adapter_{modality_name}")
+                self.fix_modules.append(f"reverter_{modality_name}")
+            
             if sensor_name == "camera":
                 camera_mask_args = model_setting['camera_mask_args']
                 setattr(self, f"crop_ratio_W_{modality_name}", (self.cav_range[3]) / (camera_mask_args['grid_conf']['xbound'][1]))
@@ -140,12 +137,22 @@ class HeterModelBaselineWCodebook(nn.Module):
         """
         Shared Heads
         """
-        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'],
-                                  kernel_size=1)
-        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
-                                  kernel_size=1)
-        self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
-                                  kernel_size=1) # BIN_NUM = 2
+        setattr(self, f"cls_head_{self.ego_modality}", nn.Conv2d(args['in_head'], args['anchor_number'],
+                                                                   kernel_size=1))
+        setattr(self, f"reg_head_{self.ego_modality}", nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
+                                                                     kernel_size=1))
+        setattr(self, f"dir_head_{self.ego_modality}", nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
+                                                                        kernel_size=1))
+        self.fix_modules.append(f"cls_head_{self.ego_modality}")
+        self.fix_modules.append(f"reg_head_{self.ego_modality}")
+        self.fix_modules.append(f"dir_head_{self.ego_modality}")
+        
+        # self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'],
+        #                           kernel_size=1)
+        # self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
+        #                           kernel_size=1)
+        # self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
+        #                           kernel_size=1) # BIN_NUM = 2
         
         # compressor will be only trainable
         self.compress = False
@@ -157,8 +164,7 @@ class HeterModelBaselineWCodebook(nn.Module):
 
 
         # check again which module is not fixed.
-
-        self.model_train_init_codebook()
+        self.model_train_init_stamp()
         check_trainable_module(self)
 
     def model_train_init(self):
@@ -172,30 +178,34 @@ class HeterModelBaselineWCodebook(nn.Module):
             for p in self.compressor.parameters():
                 p.requires_grad_(True)
     
-    def model_train_init_codebook(self):
+    def model_train_init_stamp(self):
         for module in self.fix_modules:
             for p in eval(f"self.{module}").parameters():
                 p.requires_grad_(False)
             eval(f"self.{module}").apply(fix_bn)
+        
 
     def forward(self, data_dict):
         output_dict = {}
         agent_modality_list = data_dict['agent_modality_list'] 
         affine_matrix = normalize_pairwise_tfm(data_dict['pairwise_t_matrix'], self.H, self.W, self.fake_voxel_size)
-        pairwise_t_matrix = data_dict['pairwise_t_matrix']
         record_len = data_dict['record_len'] 
         # print(agent_modality_list)
 
         modality_count_dict = Counter(agent_modality_list)
         modality_feature_dict = {}
-        print(modality_count_dict)
+
         for modality_name in self.modality_name_list:
             if modality_name not in modality_count_dict:
                 continue
             feature = eval(f"self.encoder_{modality_name}")(data_dict, modality_name)
-            if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
-                feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+            feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
             feature = eval(f"self.shrinker_{modality_name}")(feature)
+            if modality_name != self.ego_modality: #ego modality need not to be transformed
+                feature = eval(f"self.adapter_{modality_name}")(feature)   # cav -> protocol
+                feature = eval(f"self.reverter_{self.ego_modality}")(feature) # protocol -> egos
+            # feature = eval(f"self.adapter_{modality_name}")(feature)   # cav -> protocol
+            # feature = eval(f"self.reverter_{self.ego_modality}")(feature) # protocol -> egos
             modality_feature_dict[modality_name] = feature
 
         """
@@ -231,17 +241,6 @@ class HeterModelBaselineWCodebook(nn.Module):
         
         if self.compress:
             heter_feature_2d = self.compressor(heter_feature_2d)
-        
-        # note = 'm1m3_cb_'
-        # visualize_feature_maps(heter_feature_2d, mode='mean', save_path=f'/home/junfei.zhou/DATACENTER2/data/code/DiffComm/feat_vis_m1m3/{note}ego_cav.png')
-        # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego',)
-        # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav',)
-        # vis_bev(gt_feature[0].detach().cpu().numpy(), type='ego')
-        # vis_bev(gen_data_dict['t1'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t1')
-        # vis_bev(gen_data_dict['t2'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t2')
-        # vis_bev(gt_feature[1].detach().cpu().numpy(), type='cav')
-        # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
-        # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
 
         """
         Single supervision
@@ -259,52 +258,17 @@ class HeterModelBaselineWCodebook(nn.Module):
 
         we omit self.backbone's first layer.
         """
-        
-
-        
-        
-        ######Codebook#####
-        # print(record_len)
-        N, C, H, W = heter_feature_2d.shape
-        heter_feature_2d_gt = heter_feature_2d.clone()
-        heter_feature_2d = heter_feature_2d.permute(0, 2, 3, 1).contiguous().view(-1, C)
-        heter_feature_2d, _, _, codebook_loss = self.coodbook(heter_feature_2d)
-        heter_feature_2d = heter_feature_2d.view(-1, H, W, C).permute(0, 3, 1, 2).contiguous()
-        heter_feature_2d_gt_split = regroup(heter_feature_2d_gt, record_len)
-        shape_num = 0
-        # print("record_len: ", record_len)
-        # print("heter_feature_2d_gt_shape: ", heter_feature_2d_gt.shape)
-        # print("heter_feature_2d_gt_split: ", len(heter_feature_2d_gt_split))
-        note = 'm1m3_cb_'
-        # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego')
-        # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav')
-        for index in range(len(heter_feature_2d_gt_split)):
-            #print("heter_feature_2d_gt_split_shape: ", heter_feature_2d_gt_split[index].shape)
-            #print(heter_feature_2d_gt_split[index].shape[0])
-            #print(shape_num)
-            heter_feature_2d[shape_num] = heter_feature_2d_gt_split[index][0]
-            shape_num = shape_num + heter_feature_2d_gt_split[index].shape[0]
-        
-        # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego_codebook')
-        # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav_codebook')
-        output_dict.update({'codebook_loss': codebook_loss})
-        
-        cls_preds_before_fusion = self.cls_head(heter_feature_2d)
-        batch_cls_preds_before_fusion = regroup(cls_preds_before_fusion, record_len)
-        _, communication_masks, communication_rates = self.communication(batch_cls_preds_before_fusion, record_len, pairwise_t_matrix)
-        heter_feature_2d = heter_feature_2d * communication_masks
         fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
 
         if self.shrink_flag:
             fused_feature = self.shrink_conv(fused_feature)
 
-        cls_preds = self.cls_head(fused_feature)
-        reg_preds = self.reg_head(fused_feature)
-        dir_preds = self.dir_head(fused_feature)
+        cls_preds = eval(f"self.cls_head_{self.ego_modality}")(fused_feature)
+        reg_preds = eval(f"self.reg_head_{self.ego_modality}")(fused_feature)
+        dir_preds = eval(f"self.dir_head_{self.ego_modality}")(fused_feature)
 
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
-                            'dir_preds': dir_preds,
-                            })
+                            'dir_preds': dir_preds})
 
         return output_dict

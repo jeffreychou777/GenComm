@@ -310,20 +310,20 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         output_dict.update({'gt_feature': gt_feature,
                             'pred_feature': gen_data_dict['pred_feature']})
         
-        note = 'm2_'
-        # vis_bev(conditions[0].squeeze(0).detach().cpu().numpy(), type=note + 'ego_condi')
-        # vis_bev(conditions[1].squeeze(0).detach().cpu().numpy(), type=note + 'cav_condi')
-        # vis_bev(gt_feature[0].detach().cpu().numpy(), type='ego')
+        note = 'm1m3_cb'
+        # vis_bev(heter_message[0].squeeze(0).detach().cpu().numpy(), type=note + 'ego_condi')
+        # vis_bev(heter_message[1].squeeze(0).detach().cpu().numpy(), type=note + 'cav_condi')
+        # vis_bev(gt_feature[0].detach().cpu().numpy(), type=note + 'ego')
         # vis_bev(gen_data_dict['t1'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t1')
         # vis_bev(gen_data_dict['t2'].squeeze(0).detach().cpu().numpy(), type=note + 'ego_noisy_t2')
-        # vis_bev(gt_feature[1].detach().cpu().numpy(), type='cav')
+        # vis_bev(gt_feature[1].detach().cpu().numpy(), type=note + '_cav')
         # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
         # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
         
         # heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
         heter_feature_2d = gen_data_dict['pred_feature']
 
-        #replace ego feat ure with gt_feature
+        # replace ego feat ure with gt_feature
         # split_gt_feature = regroup(gt_feature, record_len)
         # split_pred_feature = regroup(heter_feature_2d, record_len)
         # ego_index = 0

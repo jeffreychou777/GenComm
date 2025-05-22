@@ -63,16 +63,7 @@ def main():
     _, model = train_utils.load_saved_model(saved_path, model)
     model.eval()
 
-    # add noise to pose.
-    pos_std_list = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
-    rot_std_list = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
-    pos_mean_list = [0, 0, 0, 0, 0, 0]
-    rot_mean_list = [0, 0, 0, 0, 0, 0]
-    # pos_std_list = [1]
-    # rot_std_list = [1]
-    # pos_mean_list = [0]
-    # rot_mean_list = [0]
-
+    sync_overhead = [100, 200, 300, 400, 500]
     
     if opt.also_laplace:
         use_laplace_options = [False, True]
@@ -83,18 +74,21 @@ def main():
         AP30 = []
         AP50 = []
         AP70 = []
-        for (pos_mean, pos_std, rot_mean, rot_std) in zip(pos_mean_list, pos_std_list, rot_mean_list, rot_std_list):
+        for overhead in sync_overhead:
             # setting noise
             np.random.seed(303)
-            noise_setting = OrderedDict()
-            noise_args = {'pos_std': pos_std,
-                          'rot_std': rot_std,
-                          'pos_mean': pos_mean,
-                          'rot_mean': rot_mean}
-
+            noise_setting = OrderedDict()    
             noise_setting['add_noise'] = True
-            noise_setting['add_pose_noise'] = True
-            noise_setting['args'] = noise_args
+
+            
+            async_noise_args = {'async_mode': 'sim',
+                                'async_method': 'random',
+                                'async_overhead': overhead,
+                                'backbone_delay':0,
+                                'data_size':0,
+                                'transmission_speed':0,}
+            noise_setting['async_args'] = async_noise_args
+            noise_setting['add_async_noise'] = True
 
             suffix = ""
             if use_laplace:
@@ -103,7 +97,7 @@ def main():
 
             # build dataset for each noise setting
             print('Dataset Building')
-            print(f"Noise Added: {pos_std}/{rot_std}/{pos_mean}/{rot_mean}.")
+            print(f"Time delay: {overhead}ms.")
             hypes.update({"noise_setting": noise_setting})
             opencood_dataset = build_dataset(hypes, visualize=True, train=False)
             data_loader = DataLoader(opencood_dataset,
@@ -119,7 +113,7 @@ def main():
                            0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
                            0.7: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
             
-            noise_level = f"{pos_std}_{rot_std}_{pos_mean}_{rot_mean}_" + opt.fusion_method + suffix + opt.note
+            noise_level = f"{overhead}ms_" + opt.fusion_method + suffix + opt.note
 
 
             for i, batch_data in enumerate(data_loader):

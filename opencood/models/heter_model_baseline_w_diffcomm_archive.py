@@ -688,6 +688,7 @@ class HeterModelBaselineWDiffCommArchive(nn.Module):
             conditions = self.cls_head(heter_feature_2d)
 
         gen_data_dict = self.diffcomm(heter_feature_2d, conditions, record_len)
+        spatial_mask = torch.any(heter_feature_2d, dim=1).to(torch.uint8).unsqueeze(1).to(heter_feature_2d.device)
         pred_feature = gen_data_dict['pred_feature']
         output_dict.update({'gt_feature': gt_feature,
                             'pred_feature': pred_feature})
@@ -701,9 +702,17 @@ class HeterModelBaselineWDiffCommArchive(nn.Module):
         # vis_bev(gt_feature[1].detach().cpu().numpy(), type=note + 'cav')
         # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
         # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
-        
-        heter_feature_2d = pred_feature
-    
+
+        heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
+        # heter_feature_2d = gen_data_dict['pred_feature']
+
+        # replace ego feat ure with gt_feature
+        split_gt_feature = regroup(gt_feature, record_len)
+        split_pred_feature = regroup(heter_feature_2d, record_len)
+        ego_index = 0
+        for index in range(len(split_gt_feature)):
+            heter_feature_2d[ego_index] = split_gt_feature[index][0]
+            ego_index = ego_index + split_gt_feature[index].shape[0]
     
         if len(heter_feature_2d.shape) == 3:
             heter_feature_2d = heter_feature_2d.unsqueeze(0) ## for the case of bs=1 and only ego

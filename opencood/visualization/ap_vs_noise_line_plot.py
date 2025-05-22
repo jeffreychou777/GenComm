@@ -4,95 +4,134 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-plt.style.use('ggplot')
-methods = ['HMViT', 'V2XViT', 'CoBEVT','HEAL']
 
-xaxis_names = ['Pose Noise Std (m & deg)', 'Pose Noise Std (m & deg)', "Compression Ratio", "Compression Ratio"]
-yaxis_names = ['Performace AP50', 'Performace AP70','Performace AP50','Performace AP70']
+# 移除 ggplot 风格以获得白色背景
+# plt.style.use('ggplot')
 
-noise_level = [0, 0.2, 0.4, 0.6, 0.8, 1.0]#, 1.2]
+methods = ['MPDA', 'BackAlign', 'CodeFilling','GenComm']
+
+xaxis_names = ['Pose Noise Std (m & deg)', 'Pose Noise Std (m & deg)', "Time Delay (ms)", "Time Delay (ms)"]
+yaxis_names = ['Performance AP50', 'Performance AP70','Performance AP50','Performance AP70']
+
+# noise_level = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+# pose_error_performance_50 = {
+#     "MPDA":  [0.687, 0.683, 0.67, 0.648, 0.631, 0.616],
+#     "BackAlign": [0.715, 0.708, 0.692, 0.663, 0.64, 0.617],
+#     "CodeFilling": [0.56, 0.556, 0.538, 0.517, 0.495, 0.482],
+#     "GenComm": [0.761, 0.753, 0.728, 0.69, 0.66, 0.626],
+# }
+# pose_error_performance_70 = {
+#     "MPDA":  [0.502, 0.498, 0.489, 0.474, 0.462, 0.453],
+#     "BackAlign": [0.533, 0.524, 0.506, 0.481, 0.468, 0.451],
+#     "CodeFilling": [0.416, 0.411, 0.391, 0.375, 0.361, 0.354],
+#     "GenComm":   [0.575, 0.558, 0.524, 0.492, 0.467, 0.449],
+# }
+
+# time_delay = [0, 100, 200, 300, 400, 500,]
+# time_delay_performance_50 = {
+#     "MPDA":  [0.687, 0.673, 0.636, 0.588, 0.555, 0.536],
+#     "BackAlign": [0.715, 0.694, 0.624, 0.576, 0.547, 0.532],
+#     "CodeFilling": [0.56, 0.542, 0.487, 0.445, 0.42, 0.408],
+#     "GenComm":   [0.761, 0.73, 0.643, 0.578, 0.544, 0.53],
+# }
+# time_delay_performance_70 = {
+#     "MPDA":  [0.502, 0.485, 0.46, 0.433, 0.413, 0.401],
+#     "BackAlign": [0.533, 0.486, 0.442, 0.421, 0.411, 0.404],
+#     "CodeFilling": [0.416, 0.381, 0.34, 0.322, 0.315, 0.31],
+#     "GenComm":   [0.575, 0.512, 0.447, 0.422, 0.405, 0.397],
+# }
+
+noise_level = [0, 0.2, 0.4, 0.6, 0.8,]
 pose_error_performance_50 = {
-    "HMViT":  [0.876,	0.855,	0.79,	0.72,	0.682,	0.652],#,	0.64],
-    "V2XViT": [0.882,	0.859,	0.8,	0.743,	0.688,	0.652],#,	0.621],
-    "CoBEVT": [0.885,	0.862,	0.793,	0.715,	0.663,	0.634],#,	0.605],
-    "HEAL":   [0.894,	0.869,	0.802,	0.747,	0.716,	0.692],#,	0.683],
+    "MPDA":  [0.687, 0.683, 0.67, 0.648, 0.631, ],
+    "BackAlign": [0.715, 0.708, 0.692, 0.663, 0.64, ],
+    "CodeFilling": [0.56, 0.556, 0.538, 0.517, 0.495, ],
+    "GenComm": [0.761, 0.753, 0.728, 0.69, 0.66, ],
 }
 pose_error_performance_70 = {
-    "HMViT":  [0.755,	0.667,	0.515,	0.427,	0.399,	0.386],#,	0.385],
-    "V2XViT": [0.753,	0.685,	0.582,	0.512,	0.481,	0.459],#,	0.447],
-    "CoBEVT": [0.742,	0.646,	0.499,	0.421,	0.398,	0.388],#,	0.394],
-    "HEAL":   [0.813,	0.712,	0.586,	0.532,	0.523,	0.524],#,	0.528],
+    "MPDA":  [0.502, 0.498, 0.489, 0.474, 0.462, ],
+    "BackAlign": [0.533, 0.524, 0.506, 0.481, 0.468, ],
+    "CodeFilling": [0.416, 0.411, 0.391, 0.375, 0.361, ],
+    "GenComm":   [0.575, 0.558, 0.524, 0.492, 0.467, ],
 }
 
-compression_ratio = [1, 2, 3, 4, 5, 6]
-compression_ratio_performance_50 = {
-    "HMViT":  [0.876,	0.869,	0.869,	0.876,	0.869,  0.872],
-    "V2XViT": [0.882,	0.868,	0.881,	0.881,	0.873,	0.874],
-    "CoBEVT": [0.885,	0.869,	0.886,	0.879,	0.887,	0.88],
-    "HEAL":   [0.894,	0.896,	0.897,	0.897,	0.888,	0.879],
+time_delay = [0, 100, 200, 300, 400, 500]
+time_delay_performance_50 = {
+    "MPDA":  [0.687, 0.673, 0.654, 0.632, 0.612, 0.592],
+    "BackAlign": [0.715, 0.694, 0.659, 0.63, 0.61,0.59],
+    "CodeFilling": [0.56, 0.543, 0.514, 0.493, 0.475,0.46],
+    "GenComm":   [0.761, 0.73, 0.684, 0.648, 0.622, 0.601],
 }
-compression_ratio_performance_70 = {
-    "HMViT":  [0.755,	0.732,	0.732,	0.743,	0.734,  0.735],
-    "V2XViT": [0.753,	0.737,	0.744,	0.741,	0.737,	0.721],
-    "CoBEVT": [0.742,	0.731,	0.728,	0.736,	0.737,	0.724],
-    "HEAL":   [0.813,	0.821,	0.824,	0.822,	0.818,	0.806],
+time_delay_performance_70 = {
+    "MPDA":  [0.502, 0.485, 0.473, 0.458, 0.446, 0.435],
+    "BackAlign": [0.533, 0.486, 0.463, 0.45, 0.443, 0.433],
+    "CodeFilling": [0.416, 0.38, 0.36, 0.351, 0.342, 0.322],
+    "GenComm":   [0.575, 0.512, 0.479, 0.458, 0.446, 0.435],
 }
+
+
 
 draw_list = [
-    {'xaxis': noise_level, 'yaxis': pose_error_performance_50, "ylim":[0.0, 0.9]},
-    {'xaxis': noise_level, 'yaxis': pose_error_performance_70, "ylim":[0.0, 0.85]},
-    {'xaxis': compression_ratio, 'yaxis': compression_ratio_performance_50, 'xlabel':[1,2,4,8,16,32], "ylim":[0.77, 0.92]},
-    {'xaxis': compression_ratio, 'yaxis': compression_ratio_performance_70, 'xlabel':[1,2,4,8,16,32], "ylim":[0.55, 0.88]},
+    {'xaxis': noise_level, 'yaxis': pose_error_performance_50, 'ylim': [0.2, 0.8]},
+    {'xaxis': noise_level, 'yaxis': pose_error_performance_70, 'ylim': [0.2, 0.6]},
+    {'xaxis': time_delay, 'yaxis': time_delay_performance_50, 'ylim': [0.2, 0.8]},
+    {'xaxis': time_delay, 'yaxis': time_delay_performance_70, 'ylim': [0.2, 0.6]},
 ]
 
 color = {
-    'HEAL': 'r',
-    'CoBEVT': 'skyblue',
-    'V2XViT': 'slategrey',
-    'HMViT': 'mediumpurple',
+    'GenComm': 'r',
+    'MPDA': 'skyblue',
+    'BackAlign': 'slategrey',
+    'CodeFilling': 'mediumpurple',
 }
 
-# 创建一个大图
+color = {
+    'GenComm': 'r',                  # 保留红色
+    'MPDA': '#1f77b4',              # 蓝色 (标准 Matplotlib 蓝)
+    'BackAlign': '#2ca02c',         # 绿色 (标准 Matplotlib 绿)
+    'CodeFilling': '#ff7f0e',       # 橙色 (标准 Matplotlib 橙)
+}
+
+markers = {
+    'GenComm': 'o',
+    'MPDA': 's',
+    'BackAlign': '^',
+    'CodeFilling': 'D',
+}
+
 fig, axs = plt.subplots(1, 4, figsize=(12, 2.85))
 
-# 对于每一个子图，绘制所有方法的折线图
 for idx, ax in enumerate(axs):
     data = draw_list[idx]
     for method in methods:
-        ax.plot(data['xaxis'], data['yaxis'][method], '-s', label=method, markersize=3, color=color[method])  # '-s' 表示线型为'-'，marker为's' (正方形)
+        ax.plot(data['xaxis'], data['yaxis'][method],'-s', label=method, markersize=2, color=color[method])
     ax.set_xticks(data['xaxis'])
     if 'Pose' in xaxis_names[idx]:
         ax.set_xticks(data['xaxis'][::2])
-
     ax.set_xlabel(xaxis_names[idx])
     ax.set_ylabel(yaxis_names[idx])
+    ax.grid(False)
     ax.set_ylim(data['ylim'])
-    ax.grid(True)
     ax.tick_params(axis='both', colors='black')
-
-
     if 'xlabel' in data:
         ax.set_xticklabels(data['xlabel'])
-
-
-    
-
-    # if idx==0:
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend((handles), (labels), loc='lower left')
+    ax.legend(handles, labels, loc='lower left', prop={'size': 8})
 
-# # 添加图例
+# plt.tight_layout()
+# file_path = "vis_result/AP_PoseError/line_plot_of_AP_vs_PoseError.png"
+# plt.savefig(file_path, dpi=500)
+# plt.close()
+# print(f"Saving to {file_path}")
+
+# # 提取图例元素，仅一次
 # handles, labels = axs[0].get_legend_handles_labels()
-# fig.legend(handles, labels, loc='lower center', ncol=len(methods))#, bbox_to_anchor=(0.5, -0.15))
+# fig.legend(handles, labels, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.03), frameon=False)
 
-plt.tight_layout()
-# plt.subplots_adjust(bottom=0.23)  # 调整底部空间以适应图例
+# 给图例预留空间
+plt.tight_layout(rect=[0, 0.05, 1, 1])
 
-file_path =  "vis_result/AP_PoseError/line_plot_of_AP_vs_PoseError.png"
-
-# 显示图形
-plt.savefig(file_path, dpi=500)
+file_path = "vis_result/AP_PoseError/line_plot_of_AP_vs_PoseError.png"
+plt.savefig(file_path, dpi=600)
 plt.close()
 print(f"Saving to {file_path}")
-
-

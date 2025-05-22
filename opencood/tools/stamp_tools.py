@@ -94,9 +94,9 @@ def merge_dict(single_model_dict, stage1_model_dict):
     for key in single_model_dict:
         # remove keys like 'layers_m4.resnet.layer2.0.bn1.bias' / 'cls_head_m4.weight' / 'shrink_conv_m4.weight'
         # from single_model_dict
-        if 'layers_m' in key or 'head_m' in key or 'shrink_conv_m' in key: 
-            print(f"Pass {key}")
-            continue
+        # if 'layers_m' in key or 'head_m' in key or 'shrink_conv_m' in key: 
+        #     print(f"Pass {key}")
+        #     continue
         merged_dict[key] = single_model_dict[key]
 
     for key in stage1_keys:
@@ -340,21 +340,31 @@ if __name__ == "__main__":
     # change_modality_key_name(log_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DAIR_m3_attfuse_wo_diffcomm_2025_04_28_06_44_56')
     
     
-    single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m4_base_att_wo_diffcomm_2025_05_03_08_38_14'
-    stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_att_wo_diffcomm_2025_04_11_01_56_53'  # protocol
-    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m4_att'
-    merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
+    # single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_base_att_wo_diffcomm_2025_04_14_09_11_28'
+    # stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_att_wo_diffcomm_2025_04_11_01_56_53'  # protocol
+    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m3_att_w_output'
+    # merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
     
     
     # add_suffix_to_keys_save(log_path = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_diffcomm_archive_2025_04_17_14_44_40',
     #                         suffix = 'm1',
     #                         save_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2_att')
     
-    # m1_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_wo_diffcomm_2025_04_10_11_12_23'
-    # m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m2_base_att_wo_diffcomm_2025_04_12_03_19_03'
-    # m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_base_att_wo_diffcomm_2025_04_14_09_11_28'
-    # m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m4_base_att_wo_diffcomm_2025_05_03_08_38_14'
+
+    m0m1_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m1_ckp'
+    m0m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m2_ckp'
+    m0m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m3_ckp'
+    m0m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m4_ckp'
     
-    # dir_list = [m2_dir, m3_dir, m4_dir, m1_dir]
-    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m2m3m4_att'
-    # merge_and_save_final(dir_list, output_model_dir)
+    dir_list = [m0m2_dir, m0m3_dir, m0m4_dir, m0m1_dir]
+    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/infer'
+    merge_and_save_final(dir_list, output_model_dir)
+    
+    #merge head_mx
+    # single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m4_att_w_output'
+    # stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m4_att'  # protocol
+    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m4_ckp'
+    
+    # merged_dict = merge_and_save_final([single_model_dir, stage1_model_dir], output_model_dir)
+    
+    

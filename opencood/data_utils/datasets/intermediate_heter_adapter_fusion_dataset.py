@@ -1168,10 +1168,10 @@ def getIntermediateheteradapterFusionDataset(cls):
                 The tensor of gt bounding box.
             """
             if "ego" in output_dict.keys():
-                pred_box_tensor, pred_score = self.post_processor.post_process(
+                pred_box_tensor, pred_score = self.post_processor.post_process_stamp(
                     data_dict, output_dict, agent_idx=agent_idx
                 )
-                gt_box_tensor = self.post_processor.generate_gt(data_dict)
+                gt_box_tensor = self.post_processor.generate_gt_bbx(data_dict)  ### gernerate_gt  -> generate_gt_bbx 25.5.11
                 return pred_box_tensor, pred_score, gt_box_tensor
             else:
                 if fusion == "intermediate":
