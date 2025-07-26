@@ -213,3 +213,15 @@ def read_pcd(pcd_path):
     del_index = np.where(np.isnan(pcd_np_points))[0]
     pcd_np_points = np.delete(pcd_np_points, del_index, axis=0)
     return pcd_np_points, time
+
+
+def load_lidar_bin(path, zero_intensity=False):
+    # hard coded, no intensity
+    bin_pcd = np.fromfile(path, dtype=np.float32)
+    # reshape
+    points = bin_pcd.reshape(-1, 4)
+    mask = np.logical_not(np.isnan(points[:, :3]).any(axis=1))
+    points = points[mask]
+    if zero_intensity:
+        points[:, -1] = 0
+    return points

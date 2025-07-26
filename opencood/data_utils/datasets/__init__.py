@@ -6,7 +6,7 @@ from opencood.data_utils.datasets.intermediate_2stage_fusion_dataset import getI
 from opencood.data_utils.datasets.intermediate_heter_fusion_dataset import getIntermediateheterFusionDataset
 from opencood.data_utils.datasets.intermediate_pnpda_fusion_dataset import getIntermediatepnpdaFusionDataset
 from opencood.data_utils.datasets.intermediate_heter_adapter_fusion_dataset import getIntermediateheteradapterFusionDataset
-
+from opencood.data_utils.datasets.intermediate_heter_v2xreal_fusion_dataset import getIntermediateheterv2xrealFusionDataset
 from opencood.data_utils.datasets.heter_infer.intermediate_heter_infer_fusion_dataset import getIntermediateheterinferFusionDataset
 
 from opencood.data_utils.datasets.basedataset.opv2v_basedataset import OPV2VBaseDataset
@@ -14,13 +14,15 @@ from opencood.data_utils.datasets.basedataset.v2xsim_basedataset import V2XSIMBa
 from opencood.data_utils.datasets.basedataset.dairv2x_basedataset import DAIRV2XBaseDataset
 from opencood.data_utils.datasets.basedataset.v2xset_basedataset import V2XSETBaseDataset
 from opencood.data_utils.datasets.basedataset.opv2v4stamp_basedataset import OPV2V4STAMPBaseDataset
+from opencood.data_utils.datasets.basedataset.v2xreal_basedataset import V2XREALBaseDataset
 
 def build_dataset(dataset_cfg, visualize=False, train=True):
     fusion_name = dataset_cfg['fusion']['core_method']
     dataset_name = dataset_cfg['fusion']['dataset']
 
-    assert fusion_name in ['late', 'lateheter', 'intermediate', 'intermediate2stage', 'intermediateheter', 'early', 'intermediateheterinfer', 'intermediatepnpda', 'intermediateheteradapter']
-    assert dataset_name in ['opv2v', 'v2xsim', 'dairv2x', 'v2xset', 'opv2v4stamp']
+    assert fusion_name in ['late', 'lateheter', 'intermediate', 'intermediate2stage', 'intermediateheter', 'early', 'intermediateheterv2xreal'
+                           'intermediateheterinfer', 'intermediatepnpda', 'intermediateheteradapter', 'intermediateheterv2xreal']
+    assert dataset_name in ['opv2v', 'v2xsim', 'dairv2x', 'v2xset', 'opv2v4stamp', 'v2xreal']
 
     fusion_dataset_func = "get" + fusion_name.capitalize() + "FusionDataset"
     fusion_dataset_func = eval(fusion_dataset_func)
@@ -34,3 +36,8 @@ def build_dataset(dataset_cfg, visualize=False, train=True):
     )
 
     return dataset
+
+
+# only used for v2xreal dataset
+# GT_RANGE = [-100, -40, -15, 100, 40, 15]  the value used in the v2xreal paper
+GT_RANGE = [-102.4, -51.2, -15, 102.4, 51.2, 15]

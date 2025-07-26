@@ -7,13 +7,14 @@ from datetime import datetime
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.distributed as dist
 from tensorboardX import SummaryWriter
-import wandb
+import swanlab as wandb
 import opencood.hypes_yaml.yaml_utils as yaml_utils
 from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
 from opencood.tools import multi_gpu_utils
 from icecream import ic
 import tqdm
+
 
 # CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --nproc_per_node=4 --use_env opencood/tools/train_ddp.py --hypes_yaml ${CONFIG_FILE} [--model_dir  ${CHECKPOINT_FOLDER}
 

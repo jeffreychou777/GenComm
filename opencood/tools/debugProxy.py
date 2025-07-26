@@ -31,7 +31,10 @@ time_delay = 'python opencood/tools/inference_w_delay.py --model_dir /home/junfe
 
 vis_diffcomm = 'python opencood/tools/inference_heter_in_order.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2m3m4_v2xvit_infer --use_cav [3]'
 vis_codebook = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m3_v2xvit'
-args =time_delay
+
+v2xreal = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/lidar_attfuse_m3.yaml'
+
+args =v2xreal
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 

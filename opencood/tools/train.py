@@ -15,7 +15,7 @@ from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
 
 from icecream import ic
-import wandb
+import swanlab as wandb
 
 
 def train_parser():
