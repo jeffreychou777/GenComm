@@ -791,10 +791,10 @@ def getIntermediateheterv2xrealFusionDataset(cls):
                 The tensor of gt bounding box.
             """
             pred_box_tensor, pred_score = \
-                self.post_processor.post_process(data_dict, output_dict)
+                self.post_processor.post_process_v2xreal(data_dict, output_dict)
             gt_box_tensor, gt_label_tensor = self.post_processor.generate_gt_bbx_v2xreal(data_dict)
 
-            return pred_box_tensor, pred_score, gt_box_tensor
+            return pred_box_tensor, pred_score, gt_box_tensor, gt_label_tensor
 
 
     return Intermediateheterv2xrealFusionDataset

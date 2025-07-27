@@ -1071,6 +1071,60 @@ def remove_bbx_abnormal_z(bbx_3d):
     return index
 
 
+def remove_large_pred_bbx_v2xreal(bbx_3d):
+    """
+    Remove large bounding box.
+
+    Parameters
+    ----------
+    bbx_3d : torch.Tensor
+        Predcited 3d bounding box, shape:(N,8,3)
+
+    Returns
+    -------
+    index : torch.Tensor
+        The keep index.
+    """
+    bbx_x_max = torch.max(bbx_3d[:, :, 0], dim=1)[0]
+    bbx_x_min = torch.min(bbx_3d[:, :, 0], dim=1)[0]
+    x_len = bbx_x_max - bbx_x_min
+
+    bbx_y_max = torch.max(bbx_3d[:, :, 1], dim=1)[0]
+    bbx_y_min = torch.min(bbx_3d[:, :, 1], dim=1)[0]
+    y_len = bbx_y_max - bbx_y_min
+
+    bbx_z_max = torch.max(bbx_3d[:, :, 1], dim=1)[0]
+    bbx_z_min = torch.min(bbx_3d[:, :, 1], dim=1)[0]
+    z_len = bbx_z_max - bbx_z_min
+
+    index = torch.logical_and(x_len <= 100, y_len <= 100)
+    index = torch.logical_and(index, z_len)
+
+    return index
+
+
+def remove_bbx_abnormal_z_v2xreal(bbx_3d):
+    """
+    Remove bounding box that has negative z axis.
+
+    Parameters
+    ----------
+    bbx_3d : torch.Tensor
+        Predcited 3d bounding box, shape:(N,8,3)
+
+    Returns
+    -------
+    index : torch.Tensor
+        The keep index.
+    """
+    bbx_z_min = torch.min(bbx_3d[:, :, 2], dim=1)[0]
+    bbx_z_max = torch.max(bbx_3d[:, :, 2], dim=1)[0]
+    # the curvy roads contain various heights
+    index = torch.logical_and(bbx_z_min >= -100, bbx_z_max <= 100)
+
+    return index
+
+
 def project_points_by_matrix_torch(points, transformation_matrix):
     """
     Project the points to another coordinate system based on the

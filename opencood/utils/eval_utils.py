@@ -345,3 +345,37 @@ def eval_final_results(result_stat, save_path, global_sort_detections, infer_inf
           'The Average Precision at IOU 0.7 is %.4f' % (ap_30, ap_50, ap_70))
     
     return ap_30, ap_50, ap_70  
+
+def eval_final_results_v2xreal(result_stat, save_path, global_sort_detections=True, infer_info=None):
+    dump_dict = {}
+    for class_name in result_stat.keys():
+        dump_dict[class_name] = {}
+        for iou_threshold in result_stat[class_name].keys():
+            ap, mrec, mpre = calculate_ap(result_stat[class_name], iou_threshold, global_sort_detections)
+            dump_dict[class_name].update(
+                                  {iou_threshold:
+                                       {"ap": ap,
+                                        "mrec": mrec,
+                                        "mpre": mpre
+                                        }
+                                   })
+            print(f'{class_name}: AP@{iou_threshold} is {ap:.3f}', end=' ')
+        print("")
+    class_names = list(result_stat.keys())
+    iou_thresholds = list(result_stat[class_names[0]].keys())
+
+    for iou_threshold in iou_thresholds:
+        mAP = 0
+        for class_name in class_names:
+            mAP += dump_dict[class_name][iou_threshold]['ap']
+        print(f'mAP@{iou_threshold} is {mAP / len(class_names):.3f}', end=' ')
+    if global_sort_detections:
+        global_sort_str = "global_sort"
+    else:
+        global_sort_str = ""
+    
+    if infer_info is None:
+        infer_info_str = ""
+    else:
+        infer_info_str = infer_info
+    yaml_utils.save_yaml(dump_dict, os.path.join(save_path, f'{global_sort_str}_{infer_info_str}_eval.yaml'))

@@ -34,7 +34,8 @@ vis_codebook = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou
 
 v2xreal = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/lidar_attfuse_m3.yaml'
 
-args =v2xreal
+v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaseline_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05'
+args =v2xreal_infer
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 

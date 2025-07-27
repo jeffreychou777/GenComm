@@ -771,7 +771,7 @@ class BasePostprocessor(object):
 
         # filter the gt_box to make sure all bbx are in the range
         mask = \
-            box_utils.get_mask_for_boxes_within_range_torch(gt_box3d_tensor)
+            box_utils.get_mask_for_boxes_within_range_torch(gt_box3d_tensor, self.params['gt_range'])
         gt_box3d_tensor = gt_box3d_tensor[mask, :, :]
         gt_label_tensor = gt_label_tensor[mask]
 

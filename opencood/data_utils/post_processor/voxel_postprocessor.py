@@ -819,7 +819,8 @@ class VoxelPostprocessor(BasePostprocessor):
             transformation_matrix = cav_content['transformation_matrix']
 
             # (num_class, H, W, anchor_num, 7)
-            all_anchors = cav_content['all_anchors']
+            all_anchors = cav_content['anchor_box']
+            all_anchors = torch.stack([torch.from_numpy(x) for x in all_anchors], dim=0)
             # (H, W, num_class, anchor_num, 7)
             all_anchors = all_anchors.permute(1,2,0,3,4).contiguous()
             # (H*W*num_class*anchor_num, 7)
@@ -830,7 +831,7 @@ class VoxelPostprocessor(BasePostprocessor):
 
             # classification probability
             # (B, num_anchor*num_class*num_class, H, W)
-            prob = output_dict[cav_id]['psm']
+            prob = output_dict[cav_id]['cls_preds']
             batch_size = prob.shape[0]
             # (B, H, W, num_anchor*num_class*num_class)
             prob = F.sigmoid(prob.permute(0, 2, 3, 1))
@@ -842,7 +843,7 @@ class VoxelPostprocessor(BasePostprocessor):
             label_preds += 1
 
             # regression map
-            reg = output_dict[cav_id]['rm']
+            reg = output_dict[cav_id]['reg_preds']
             # (B, H, W, num_anchor*num_class*7)
             reg = reg.permute(0, 2, 3, 1).contiguous()
             # (B, H, W, num_anchor*num_class, 7)
@@ -851,7 +852,7 @@ class VoxelPostprocessor(BasePostprocessor):
 
             # convert regression map back to bounding box
             # (N, H*W*num_anchor*num_class, 7)
-            batch_box3d = self.delta_to_boxes3d(reg, all_anchors, channel_swap=False)
+            batch_box3d = self.delta_to_boxes3d_v2xreal(reg, all_anchors, channel_swap=False)
             mask = \
                 torch.gt(cls_pred, self.params['target_args']['score_threshold'])
             mask = mask.view(1, -1)
@@ -901,10 +902,10 @@ class VoxelPostprocessor(BasePostprocessor):
         # predicted labels
         pred_label_tensor = torch.cat(pred_label_list)
         # remove large bbx
-        keep_index_1 = box_utils.remove_large_pred_bbx(pred_box3d_tensor)
-        keep_index_2 = box_utils.remove_bbx_abnormal_z(pred_box3d_tensor)
+        keep_index_1 = box_utils.remove_large_pred_bbx_v2xreal(pred_box3d_tensor)
+        keep_index_2 = box_utils.remove_bbx_abnormal_z_v2xreal(pred_box3d_tensor)
         keep_index = torch.logical_and(keep_index_1, keep_index_2)
-        assert keep_index.sum().cpu() == pred_box3d_tensor.shape[0]
+        assert keep_index.sum().cpu() == pred_box3d_tensor.shape[0]  # 为什么assert 是在这个位置？
 
         pred_box3d_tensor = pred_box3d_tensor[keep_index]
         scores = scores[keep_index]
@@ -928,7 +929,7 @@ class VoxelPostprocessor(BasePostprocessor):
 
         # filter out the prediction out of the range.
         mask = \
-            box_utils.get_mask_for_boxes_within_range_torch(pred_box3d_tensor)
+            box_utils.get_mask_for_boxes_within_range_torch(pred_box3d_tensor, self.params['gt_range'])
         pred_box3d_tensor = pred_box3d_tensor[mask, :, :]
         unprojected_box3d_tensor = unprojected_box3d_tensor[mask, :, :]
         scores = scores[mask]
