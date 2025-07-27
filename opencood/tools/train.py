@@ -215,10 +215,17 @@ def main():
 
     run_test = True
     if run_test:
-        fusion_method = opt.fusion_method
-        cmd = f"python opencood/tools/inference.py --model_dir {saved_path} --fusion_method {fusion_method}"
-        print(f"Running command: {cmd}")
-        os.system(cmd)
+        if hypes['fusion']['dataset'] == 'v2xreal':
+            fusion_method = opt.fusion_method
+            cmd = f"python opencood/tools/inference_v2xreal.py --model_dir {saved_path} --fusion_method {fusion_method}"
+            print(f"Running command: {cmd}")
+            os.system(cmd)
+            
+        else:
+            fusion_method = opt.fusion_method
+            cmd = f"python opencood/tools/inference.py --model_dir {saved_path} --fusion_method {fusion_method}"
+            print(f"Running command: {cmd}")
+            os.system(cmd)
 
 if __name__ == '__main__':
     main()
