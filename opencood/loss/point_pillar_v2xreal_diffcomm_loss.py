@@ -253,9 +253,9 @@ class PointPillarV2XRealDiffCommLoss(nn.Module):
         gen_loss = self.loss_dict['gen_loss']
         if pbar is None:
             print("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
-                " || Loc Loss: %.4f" % (
+                " || Loc Loss: %.4f || Gen Loss: %.4f" % (
                     epoch, batch_id + 1, batch_len,
-                    total_loss.item(), conf_loss.item(), reg_loss.item()))
+                    total_loss.item(), conf_loss.item(), reg_loss.item(), gen_loss.item()))
         else:
             pbar.set_description("[epoch %d][%d/%d], || Loss: %.4f || Conf Loss: %.4f"
                   " || Loc Loss: %.4f || Gen Loss: %.4f" % (
@@ -269,6 +269,6 @@ class PointPillarV2XRealDiffCommLoss(nn.Module):
                           epoch*batch_len + batch_id)
         wandb.log({ 'Loss': total_loss,
                     'Reg_loss': reg_loss,
-                    'Conf_loss': conf_loss,}, step=iter)
-        
-        
+                    'Conf_loss': conf_loss,
+                    'Gen_loss': gen_loss}, step=iter)
+

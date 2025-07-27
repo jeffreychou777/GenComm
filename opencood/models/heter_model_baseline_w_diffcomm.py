@@ -146,10 +146,12 @@ class HeterModelBaselineWDiffComm(nn.Module):
         #     self.message_extractor = MessageExtractorv2(128, 2)
         #     print('message_extractor: message_extractorv2')
         
-        if 'enhancer' in args and args['enhancer'] == 'enhancev12':
-            self.enhancer = Enhancerv12(128, [8, 8], 4)
+        # if 'enhancer' in args and args['enhancer'] == 'enhancev12':
+        #     self.enhancer = Enhancerv12(256, [8, 8], 4)
+        #     print("use enhancev12")
+        if 'enhancer' in args:
+            self.enhancer = Enhancerv12(self.args['enhancer']['in_ch'], [8, 8], 4)
             print("use enhancev12")
-
         
         # compressor will be only trainable
         self.compress = False 
