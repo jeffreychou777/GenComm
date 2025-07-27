@@ -80,7 +80,7 @@ class HeterModelBaselineWDiffComm(nn.Module):
             shrink conv building
             """
             setattr(self, f"shrinker_{modality_name}", DownsampleConv(model_setting['shrink_header']))
-            setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
+            setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(args['message_extractor']['in_ch'], args['message_extractor']['out_ch']))
             print('message_extractor: message_extractorv2')
 
             if sensor_name == "camera":
@@ -98,15 +98,15 @@ class HeterModelBaselineWDiffComm(nn.Module):
         self.gmatch = False
         if 'gmatch' in args and args['gmatch']:
             self.gmatch = True
-
+            
+        self.num_class = args['num_class'] if "num_class" in args else 1
         self.supervise_single = False
         if args.get("supervise_single", False):
             self.supervise_single = True
             in_head_single = args['in_head_single']
-            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'], kernel_size=1))
-            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7, kernel_size=1))
+            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * self.num_class * self.num_class, kernel_size=1))
+            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7 * self.num_class, kernel_size=1))
             setattr(self, f'dir_head_single', nn.Conv2d(in_head_single, args['anchor_number'] *  args['dir_args']['num_bins'], kernel_size=1))
-
 
         if args['fusion_method'] == "max":
             self.fusion_net = MaxFusion()
@@ -135,9 +135,9 @@ class HeterModelBaselineWDiffComm(nn.Module):
         """
         Shared Heads
         """
-        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'],
+        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'] * self.num_class * self.num_class,
                                   kernel_size=1)
-        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
+        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'] * self.num_class,
                                   kernel_size=1)
         self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
                                   kernel_size=1) # BIN_NUM = 2
