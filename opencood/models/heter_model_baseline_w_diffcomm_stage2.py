@@ -32,6 +32,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
     def __init__(self, args):
         super(HeterModelBaselineWDiffCommStage2, self).__init__()
         self.args = args
+        self.missing_message = args['missing_message'] if 'missing_message' in args else False
         self.diffcomm = DiffComm(args['diffcomm'])
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
@@ -109,12 +110,13 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         if 'gmatch' in args and args['gmatch']:
             self.gmatch = True
 
+        self.num_class = args['num_class'] if "num_class" in args else 1
         self.supervise_single = False
         if args.get("supervise_single", False):
             self.supervise_single = True
             in_head_single = args['in_head_single']
-            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'], kernel_size=1))
-            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7, kernel_size=1))
+            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * self.num_class * self.num_class, kernel_size=1))
+            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7 * self.num_class, kernel_size=1))
             setattr(self, f'dir_head_single', nn.Conv2d(in_head_single, args['anchor_number'] *  args['dir_args']['num_bins'], kernel_size=1))
 
 
@@ -148,9 +150,9 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         """
         Shared Heads
         """
-        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'],
+        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'] * self.num_class * self.num_class,
                                   kernel_size=1)
-        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
+        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'] * self.num_class,
                                   kernel_size=1)
         self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
                                   kernel_size=1) # BIN_NUM = 2
@@ -244,6 +246,13 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         heter_feature_2d = torch.stack(heter_feature_2d_list)
         heter_message = torch.stack(heter_message_list)
         
+        if not self.training and self.missing_message:  # for missing_massage inference
+            # 对heter_message应用mask，保持ego不变，其余20%置0
+            print("Missing message inference")
+            for i in range(1, heter_message.shape[0]):
+                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.2
+                heter_message[i] = heter_message[i] * mask
+        
         if self.compress:
             heter_feature_2d = self.compressor(heter_feature_2d)
 
@@ -320,16 +329,16 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
         # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
         
-        # heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
-        heter_feature_2d = gen_data_dict['pred_feature']
+        heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
+        # heter_feature_2d = gen_data_dict['pred_feature']
 
         # replace ego feat ure with gt_feature
-        # split_gt_feature = regroup(gt_feature, record_len)
-        # split_pred_feature = regroup(heter_feature_2d, record_len)
-        # ego_index = 0
-        # for index in range(len(split_gt_feature)):
-        #     heter_feature_2d[ego_index] = split_gt_feature[index][0]
-        #     ego_index = ego_index + split_gt_feature[index].shape[0]
+        split_gt_feature = regroup(gt_feature, record_len)
+        split_pred_feature = regroup(heter_feature_2d, record_len)
+        ego_index = 0
+        for index in range(len(split_gt_feature)):
+            heter_feature_2d[ego_index] = split_gt_feature[index][0]
+            ego_index = ego_index + split_gt_feature[index].shape[0]
             
         
         if len(heter_feature_2d.shape) == 3:

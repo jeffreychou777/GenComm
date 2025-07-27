@@ -33,8 +33,8 @@ class HeterModelBaselineWDiffComm(nn.Module):
     def __init__(self, args):
         super(HeterModelBaselineWDiffComm, self).__init__()
         self.args = args
-        
         self.diffcomm = DiffComm(args['diffcomm'])
+        self.missing_message = args.get('missing_message', False)
         
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
@@ -228,6 +228,16 @@ class HeterModelBaselineWDiffComm(nn.Module):
 
         heter_feature_2d = torch.stack(heter_feature_2d_list)
         heter_message = torch.stack(heter_message_list)
+        
+        if not self.training and self.missing_message:  # for missing_massage inference
+            # 对heter_message应用mask，保持ego不变，其余40%置0
+            for i in range(1, heter_message.shape[0]):
+                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.4
+                heter_message[i] = heter_message[i] * mask
+            
+            
+        
+        
         conditions = heter_message
         """
         Single supervision

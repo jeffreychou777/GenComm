@@ -20,7 +20,7 @@ def build_dataset(dataset_cfg, visualize=False, train=True):
     fusion_name = dataset_cfg['fusion']['core_method']
     dataset_name = dataset_cfg['fusion']['dataset']
 
-    assert fusion_name in ['late', 'lateheter', 'intermediate', 'intermediate2stage', 'intermediateheter', 'early', 'intermediateheterv2xreal'
+    assert fusion_name in ['late', 'lateheter', 'intermediate', 'intermediate2stage', 'intermediateheter', 'early', 'intermediateheterv2xreal',
                            'intermediateheterinfer', 'intermediatepnpda', 'intermediateheteradapter', 'intermediateheterv2xreal']
     assert dataset_name in ['opv2v', 'v2xsim', 'dairv2x', 'v2xset', 'opv2v4stamp', 'v2xreal']
 

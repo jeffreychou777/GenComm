@@ -90,14 +90,14 @@ class HeterModelBaselineWMPDA(nn.Module):
         self.W = (self.cav_range[3] - self.cav_range[0])
         self.fake_voxel_size = 1
 
+        self.num_class = args['num_class'] if "num_class" in args else 1
         self.supervise_single = False
         if args.get("supervise_single", False):
             self.supervise_single = True
             in_head_single = args['in_head_single']
-            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'], kernel_size=1))
-            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7, kernel_size=1))
+            setattr(self, f'cls_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * self.num_class * self.num_class, kernel_size=1))
+            setattr(self, f'reg_head_single', nn.Conv2d(in_head_single, args['anchor_number'] * 7 * self.num_class, kernel_size=1))
             setattr(self, f'dir_head_single', nn.Conv2d(in_head_single, args['anchor_number'] *  args['dir_args']['num_bins'], kernel_size=1))
-
 
         if args['fusion_method'] == "max":
             self.fusion_net = MaxFusion()

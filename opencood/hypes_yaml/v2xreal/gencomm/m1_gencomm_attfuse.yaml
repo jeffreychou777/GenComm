@@ -200,11 +200,12 @@ model:
     dir_args: *dir_args
 
 loss:
-  core_method: point_pillar_v2xreal_loss
+  core_method: point_pillar_v2xreal_diffcomm_loss
   args:
     cls_weight: 1.0
     reg: 2.0
     num_class: *num_class
+    generate_weight: 1  # weight for generate loss
 
 optimizer:
   core_method: Adam
