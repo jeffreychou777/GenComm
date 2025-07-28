@@ -1,4 +1,4 @@
-name: HeterBaseline_V2XReal_lidar_attfuse_m2
+name: m4_Gencomm_V2XReal_lidar_attfuse
 root_dir: "opencood/dataset/v2xreal/train"
 validate_dir: "opencood/dataset/v2xreal/test"
 test_dir: "opencood/dataset/v2xreal/test"
@@ -20,16 +20,16 @@ cav_lidar_range: &cav_lidar [-102.4, -51.2, -15, 102.4, 51.2, 15]
 
 heter:
   assignment_path: "opencood/modality_assign/v2xreal_4modality.json" 
-  ego_modality: &ego_modality "m2"
+  ego_modality: &ego_modality "m4"
   mapping_dict:
-    m1: m2
-    m2: m2
-    m3: m2
-    m4: m2
+    m1: m4
+    m2: m4
+    m3: m4
+    m4: m4
   modality_setting:
-    m2:
-      sensor_type: &sensor_type_m2 'lidar'
-      core_method: &core_method_m2 "point_pillar"
+    m4:
+      sensor_type: &sensor_type_m4 'lidar'
+      core_method: &core_method_m4 "point_pillar"
 
       # lidar requires preprocess
       preprocess:
@@ -129,14 +129,14 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline
+  core_method: heter_model_baseline_w_diffcomm
   args:
     ego_modality: *ego_modality
     lidar_range: *cav_lidar
 
-    m2:
-      core_method: *core_method_m2
-      sensor_type: *sensor_type_m2
+    m4:
+      core_method: *core_method_m4
+      sensor_type: *sensor_type_m4
 
       encoder_args:
         voxel_size: *voxel_size
@@ -149,19 +149,40 @@ model:
         point_pillar_scatter:
           num_features: 64
 
-      backbone_args:
-        layer_nums: [3, 5,]
-        layer_strides: [2, 2,]
-        num_filters: [64, 128,]
-        upsample_strides: [1, 2,]
-        num_upsample_filter: [128, 128,]
+      backbone_args: 'identity'
+
   
       shrink_header: 
         kernal_size: [ 3 ]
-        stride: [ 1 ]
+        stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 256 ]
-        input_dim: 256 # 128 * 3
+        input_dim: 64 # 128 * 3
+
+    enhancer:
+      in_ch: 256          # 'enhance', 'enhanceV1', ...
+    message_extractor: 
+      in_ch: 256
+      out_ch: 2
+
+    diffcomm:
+      model:
+        embed_dim: 258
+        in_channels: 256
+        out_ch: 256
+        ch: 8
+        ch_mult: [1, 1]
+        num_res_blocks: 2
+        attn_resolutions: [16]
+        dropout: 0.0
+        resamp_with_conv: True
+      diffusion:
+        beta_schedule: linear
+        beta_start: 0.0005
+        beta_end: 0.02
+        num_diffusion_timesteps: 3
+
+
 
     fusion_method: att 
     att:
@@ -175,11 +196,12 @@ model:
     dir_args: *dir_args
 
 loss:
-  core_method: point_pillar_v2xreal_loss
+  core_method: point_pillar_v2xreal_diffcomm_loss
   args:
     cls_weight: 1.0
     reg: 2.0
     num_class: *num_class
+    generate_weight: 1  # weight for generate loss
 
 optimizer:
   core_method: Adam

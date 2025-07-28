@@ -36,7 +36,8 @@ v2xreal = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/
 
 v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaseline_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05'
 
-v2xreal_gencomm = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/gencomm/m1_gencomm_attfuse.yaml'
+v2xreal_gencomm = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/gencomm/m4_gencomm_attfuse.yaml'
+
 args =v2xreal_gencomm
 
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'

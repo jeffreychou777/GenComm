@@ -73,7 +73,10 @@ class HeterModelBaselineWDiffComm(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
+            if model_setting['backbone_args'] == 'identity':
+                setattr(self, f"backbone_{modality_name}", nn.Identity())
+            else:
+                setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
                                                                        model_setting['backbone_args'].get('inplanes',64)))
 
             """
@@ -191,7 +194,8 @@ class HeterModelBaselineWDiffComm(nn.Module):
             if modality_name not in modality_count_dict:
                 continue
             feature = eval(f"self.encoder_{modality_name}")(data_dict, modality_name)
-            feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+            if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
+                feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
             feature = eval(f"self.shrinker_{modality_name}")(feature)
             message = eval(f"self.message_extractor_{modality_name}")(feature)
             modality_feature_dict[modality_name] = feature

@@ -36,7 +36,7 @@ class HeterModelBaselineWCodebook(nn.Module):
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-        
+        self.missing_message = args.get('missing_message', False)
         self.fix_modules = ['fusion_net', 'cls_head', 'reg_head', 'dir_head']
         channel = 128
         p_rate = 0.0
@@ -81,8 +81,11 @@ class HeterModelBaselineWCodebook(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", nn.Identity() if model_setting['backbone_args'] == 'identity' else
-                    BaseBEVBackbone(model_setting['backbone_args'], model_setting['backbone_args'].get('inplanes',64)))
+            if model_setting['backbone_args'] == 'identity':
+                setattr(self, f"backbone_{modality_name}", nn.Identity())
+            else:
+                setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
+                                                                       model_setting['backbone_args'].get('inplanes',64)))
 
             """
             shrink conv building
@@ -288,6 +291,14 @@ class HeterModelBaselineWCodebook(nn.Module):
         
         # vis_bev(heter_feature_2d[0].detach().cpu().numpy(), type=note + 'ego_codebook')
         # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav_codebook')
+        if not self.training and self.missing_message:
+            # 对heter_message应用mask，保持ego不变，其余40%置0
+            for i in range(1, heter_feature_2d.shape[0]):
+                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > 0.2
+                heter_feature_2d[i] = heter_feature_2d[i] * mask
+        
+        
+        
         output_dict.update({'codebook_loss': codebook_loss})
         
         cls_preds_before_fusion = self.cls_head(heter_feature_2d)

@@ -1,4 +1,4 @@
-name: HeterBaselin_V2XReal_lidar_attfuse_v2xreal
+name: HeterBaselin_V2XReal_lidar_attfuse_m3
 root_dir: "opencood/dataset/v2xreal/train"
 validate_dir: "opencood/dataset/v2xreal/test"
 test_dir: "opencood/dataset/v2xreal/test"
@@ -29,17 +29,17 @@ heter:
   modality_setting:
     m3:
       sensor_type: &sensor_type_m3 'lidar'
-      core_method: &core_method_m3 "second"
+      core_method: &core_method_m3 "point_pillar"
 
       # lidar requires preprocess
       preprocess:
         # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
         core_method: 'SpVoxelPreprocessor'
         args:
-          voxel_size: &voxel_size_m3 [0.1, 0.1, 0.1]
-          max_points_per_voxel: 5
-          max_voxel_train: 32000
-          max_voxel_test: 70000
+          voxel_size: &voxel_size [0.4, 0.4, 30]
+          max_points_per_voxel: 32
+          max_voxel_train: 64000
+          max_voxel_test: 640000
         # lidar range for each individual cav.
         cav_lidar_range: *cav_lidar
 
@@ -140,30 +140,30 @@ model:
       sensor_type: *sensor_type_m3
 
       encoder_args:
-        voxel_size: *voxel_size_m3
+        voxel_size: *voxel_size
         lidar_range: *cav_lidar
-        mean_vfe:
-          num_point_features: 4
-        spconv:
-          num_features_in: 4
-          num_features_out: 64
-        map2bev:
-          feature_num: 128
+        pillar_vfe:
+          use_norm: true
+          with_distance: false
+          use_absolute_xyz: true
+          num_filters: [64]
+        point_pillar_scatter:
+          num_features: 64
 
       backbone_args:
-        layer_nums: [3, 5, 8]
-        layer_strides: [1, 2, 2]
-        num_filters: [64, 128, 256]
-        upsample_strides: [1, 2, 4]
-        num_upsample_filter: [128, 128, 128]
-        inplanes: 128
+        layer_nums: [3,]
+        layer_strides: [2,]
+        num_filters: [64,]
+        upsample_strides: [1,]
+        num_upsample_filter: [128,]
+        inplanes: 64
   
       shrink_header: 
         kernal_size: [ 3 ]
         stride: [ 1 ]
         padding: [ 1 ]
         dim: [ 256 ]
-        input_dim: 384 # 128 * 3
+        input_dim: 128 # 128 * 3
 
     fusion_method: att 
     att:

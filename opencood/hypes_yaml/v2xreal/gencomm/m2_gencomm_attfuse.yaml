@@ -1,4 +1,4 @@
-name: HeterBaseline_V2XReal_lidar_attfuse_m2
+name: m2_Gencomm_V2XReal_lidar_attfuse
 root_dir: "opencood/dataset/v2xreal/train"
 validate_dir: "opencood/dataset/v2xreal/test"
 test_dir: "opencood/dataset/v2xreal/test"
@@ -129,7 +129,7 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline
+  core_method: heter_model_baseline_w_diffcomm
   args:
     ego_modality: *ego_modality
     lidar_range: *cav_lidar
@@ -163,6 +163,31 @@ model:
         dim: [ 256 ]
         input_dim: 256 # 128 * 3
 
+    enhancer:
+      in_ch: 256          # 'enhance', 'enhanceV1', ...
+    message_extractor: 
+      in_ch: 256
+      out_ch: 2
+
+    diffcomm:
+      model:
+        embed_dim: 258
+        in_channels: 256
+        out_ch: 256
+        ch: 8
+        ch_mult: [1, 1]
+        num_res_blocks: 2
+        attn_resolutions: [16]
+        dropout: 0.0
+        resamp_with_conv: True
+      diffusion:
+        beta_schedule: linear
+        beta_start: 0.0005
+        beta_end: 0.02
+        num_diffusion_timesteps: 3
+
+
+
     fusion_method: att 
     att:
       feat_dim: 256
@@ -175,11 +200,12 @@ model:
     dir_args: *dir_args
 
 loss:
-  core_method: point_pillar_v2xreal_loss
+  core_method: point_pillar_v2xreal_diffcomm_loss
   args:
     cls_weight: 1.0
     reg: 2.0
     num_class: *num_class
+    generate_weight: 1  # weight for generate loss
 
 optimizer:
   core_method: Adam
