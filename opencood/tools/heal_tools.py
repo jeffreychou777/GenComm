@@ -258,14 +258,17 @@ def add_suffix_to_keys_save(log_path, suffix, save_path):
 
 def change_modality_key_name(log_path,):
     """
-    Change 'm1' to 'm3' in model_dict.
+    Change 'm1' to 'mx' in model_dict.
     """
     model_path = get_model_path_from_dir(log_path)
     model_dict = torch.load(model_path, map_location='cpu')
     for key in list(model_dict.keys()):
         if 'm1' in key:
-            new_key = key.replace('m1', 'm3')
+            new_key = key.replace('m1', 'm2')
             model_dict[new_key] = model_dict.pop(key)
+            
+    torch.save(model_dict, os.path.join(model_path))
+    
     return model_dict
 
 
@@ -290,9 +293,9 @@ if __name__ == "__main__":
     # change_modality_key_name(log_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DAIR_m3_attfuse_wo_diffcomm_2025_04_28_06_44_56')
     
     
-    # single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m4_base_att_w_diffcomm_2025_05_04_02_26_51'
-    # stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_diffcomm_archive_2025_04_17_14_44_40'
-    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_att'
+    # single_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m4_2025_07_28_00_19_41'
+    # stage1_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m1_2025_07_27_03_42_31'
+    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/V2XReal_m1m4_att'
     # merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
     
     
@@ -300,19 +303,22 @@ if __name__ == "__main__":
     #                         suffix = 'm1',
     #                         save_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2_att')
     
-    # m1_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_wo_diffcomm_2025_04_10_11_12_23'
-    # m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m2_base_att_wo_diffcomm_2025_04_12_03_19_03'
-    # m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m3_base_att_wo_diffcomm_2025_04_14_09_11_28'
-    # m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m4_base_att_wo_diffcomm_2025_05_03_08_38_14'
+    m1_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m1_2025_07_27_03_42_31'
+    m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05'
+    m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m3_2025_07_27_14_35_53'
+    # m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m4_2025_07_28_00_19_41'
     
-    # dir_list = [m2_dir, m3_dir, m4_dir, m1_dir]
-    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m2m3m4_att'
+    dir_list = [m2_dir, m3_dir, m1_dir]
+    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/V2XReal_m1m2m3_att'
+    merge_and_save_final(dir_list, output_model_dir)
+    
+    # m1_m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2_v2xvit'
+    # m1_m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m3_v2xvit'
+    # m1_m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_v2xvit'
+        
+    # dir_list = [m1_m4_dir, m1_m3_dir, m1_m2_dir]
+    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2m3m4_v2xvit_infer'
     # merge_and_save_final(dir_list, output_model_dir)
     
-    m1_m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2_v2xvit'
-    m1_m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m3_v2xvit'
-    m1_m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m4_v2xvit'
-        
-    dir_list = [m1_m4_dir, m1_m3_dir, m1_m2_dir]
-    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2m3m4_v2xvit_infer'
-    merge_and_save_final(dir_list, output_model_dir)
+    # change_modality_key_name(log_path = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05')
+    

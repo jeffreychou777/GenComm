@@ -38,7 +38,7 @@ class HeterModelBaselineWCodebook(nn.Module):
         self.modality_name_list = modality_name_list
         self.missing_message = args.get('missing_message', False)
         self.fix_modules = ['fusion_net', 'cls_head', 'reg_head', 'dir_head']
-        channel = 128
+        channel = args['codebook']['channel'] if 'channel' in args['codebook'] else 128
         p_rate = 0.0
         seg_num = args['codebook']['seg_num']
         dict_size = [args['codebook']['dict_size'], args['codebook']['dict_size'], args['codebook']['dict_size']]
@@ -293,8 +293,9 @@ class HeterModelBaselineWCodebook(nn.Module):
         # vis_bev(heter_feature_2d[1].detach().cpu().numpy(), type=note + 'cav_codebook')
         if not self.training and self.missing_message:
             # 对heter_message应用mask，保持ego不变，其余40%置0
+            print("inference missing message")
             for i in range(1, heter_feature_2d.shape[0]):
-                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > 0.2
+                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > 0.05
                 heter_feature_2d[i] = heter_feature_2d[i] * mask
         
         

@@ -33,8 +33,12 @@ class HeterModelBaselineWMPDA(nn.Module):
         super(HeterModelBaselineWMPDA, self).__init__()
         self.resizer = LearnableResizer(args['resizer'])
         self.cdt = CrossDomainFusionEncoder(args['cdt'])
-        self.classifier = DAImgHead(128)
+        self.classifier = DAImgHead(args['classifier'])if 'classifier' in args else DAImgHead(128)
         self.args = args
+        self.rebuttal = args.get('rebuttal', False)
+        self.spatial_shrinker_flag = args.get('spatial_shrinker', False)
+
+        self.missing_message = args.get('missing_message', False)
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
@@ -70,7 +74,10 @@ class HeterModelBaselineWMPDA(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
+            if model_setting['backbone_args'] == 'identity':
+                setattr(self, f"backbone_{modality_name}", nn.Identity())
+            else:
+                setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
                                                                        model_setting['backbone_args'].get('inplanes',64)))
 
             """
@@ -85,6 +92,12 @@ class HeterModelBaselineWMPDA(nn.Module):
                 setattr(self, f"xdist_{modality_name}", (camera_mask_args['grid_conf']['xbound'][1] - camera_mask_args['grid_conf']['xbound'][0]))
                 setattr(self, f"ydist_{modality_name}", (camera_mask_args['grid_conf']['ybound'][1] - camera_mask_args['grid_conf']['ybound'][0]))
 
+            if self.spatial_shrinker_flag:
+                setattr(self, f'spatial_shrinker_{modality_name}', nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1))
+                setattr(self, f'spatial_deshrinker_{modality_name}', nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1))
+                
+            
+            
         """For feature transformation"""
         self.H = (self.cav_range[4] - self.cav_range[1])
         self.W = (self.cav_range[3] - self.cav_range[0])
@@ -128,9 +141,9 @@ class HeterModelBaselineWMPDA(nn.Module):
         """
         Shared Heads
         """
-        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'],
+        self.cls_head = nn.Conv2d(args['in_head'], args['anchor_number'] * self.num_class * self.num_class,
                                   kernel_size=1)
-        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
+        self.reg_head = nn.Conv2d(args['in_head'], 7 * args['anchor_number'] * self.num_class,
                                   kernel_size=1)
         self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
                                   kernel_size=1) # BIN_NUM = 2
@@ -177,8 +190,10 @@ class HeterModelBaselineWMPDA(nn.Module):
             if modality_name not in modality_count_dict:
                 continue
             feature = eval(f"self.encoder_{modality_name}")(data_dict, modality_name)
-            feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+            if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
+                feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
             feature = eval(f"self.shrinker_{modality_name}")(feature)
+            feature  = eval(f"self.spatial_shrinker_{modality_name}")(feature) if self.spatial_shrinker_flag else feature
             modality_feature_dict[modality_name] = feature
 
         """
@@ -232,9 +247,12 @@ class HeterModelBaselineWMPDA(nn.Module):
                 cav_feature = heter_feature_split[i][1:]
                 for j in range(len(cav_feature)):
                     class_labels.append(1)
-                cav_feature = self.resizer(ego_feature, cav_feature)        
-                ego_copy = ego_feature.repeat(cav_feature.shape[0], 1, 1, 1)
-                cav_feature = self.cdt(ego_copy, cav_feature)
+                if self.rebuttal:
+                    cav_feature = cav_feature
+                else:
+                    cav_feature = self.resizer(ego_feature, cav_feature)        
+                    ego_copy = ego_feature.repeat(cav_feature.shape[0], 1, 1, 1)
+                    cav_feature = self.cdt(ego_copy, cav_feature)
                 class_logits.append(self.classifier(torch.cat((ego_feature,cav_feature),dim=0)))
                 reshaped_spatial_feature_list.append(torch.cat((ego_feature,cav_feature),dim=0))
                 
@@ -261,8 +279,29 @@ class HeterModelBaselineWMPDA(nn.Module):
 
         we omit self.backbone's first layer.
         """
-        fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
+        
+        if not self.training and self.missing_message:  # for missing_massage inference
+            # 对heter_message应用mask，保持ego不变，其余40%置0
+            print("Inference missing message")
+            for i in range(1, heter_feature_2d.shape[0]):
+                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > 0.05
+                heter_feature_2d[i] = heter_feature_2d[i] * mask
 
+        
+        if self.spatial_shrinker_flag:
+            heter_feature_list = []
+            for i in range(len(agent_modality_list)):
+                modality_name = agent_modality_list[i]
+                heter_feature_list.append(eval(f"self.spatial_deshrinker_{modality_name}")(heter_feature_2d[i].unsqueeze(0)))
+            heter_feature_2d = torch.cat(heter_feature_list, dim=0)
+
+        """
+        Feature Fusion (multiscale).
+
+        we omit self.backbone's first layer.
+        """
+        fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
+        
         if self.shrink_flag:
             fused_feature = self.shrink_conv(fused_feature)
 

@@ -28,6 +28,7 @@ class HeterModelBaselineWStampInfer(nn.Module):
     def __init__(self, args):
         super(HeterModelBaselineWStampInfer, self).__init__()
         self.args = args
+        self.missing_message = args.get('missing_message', False)
         self.fix_modules = []
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
@@ -258,6 +259,14 @@ class HeterModelBaselineWStampInfer(nn.Module):
 
         we omit self.backbone's first layer.
         """
+
+        if not self.training and self.missing_message:
+            # 对heter_message应用mask，保持ego不变，其余40%置0
+            for i in range(1, heter_feature_2d.shape[0]):
+                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > 0.2
+                heter_feature_2d[i] = heter_feature_2d[i] * mask
+
+
         fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
 
         if self.shrink_flag:

@@ -65,8 +65,11 @@ class HeterModelBaseline(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", nn.Identity() if model_setting['backbone_args'] == 'identity' else
-                    BaseBEVBackbone(model_setting['backbone_args'], model_setting['backbone_args'].get('inplanes',64)))
+            if model_setting['backbone_args'] == 'identity':
+                setattr(self, f"backbone_{modality_name}", nn.Identity())
+            else:
+                setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
+                                                                       model_setting['backbone_args'].get('inplanes',64)))
 
             """
             shrink conv building

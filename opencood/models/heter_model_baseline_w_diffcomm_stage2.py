@@ -253,7 +253,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             # 对heter_message应用mask，保持ego不变，其余20%置0
             print("Missing message inference")
             for i in range(1, heter_message.shape[0]):
-                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.1
+                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.05
                 heter_message[i] = heter_message[i] * mask
         
         if self.compress:
