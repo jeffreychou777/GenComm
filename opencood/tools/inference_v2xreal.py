@@ -131,7 +131,14 @@ def main():
     
     infer_info = opt.fusion_method + opt.note
 
-
+# Create the dictionary for evaluation
+    result_stat = {}
+    for class_name in SUPER_CLASS_MAP.keys():
+        result_stat[class_name] = {}
+        for iou_threshold in [0.3, 0.5, 0.7]:
+            result_stat[class_name][iou_threshold] = \
+            {'tp': [], 'fp': [], 'gt': 0, 'score': []}
+            
     for i, batch_data in enumerate(data_loader):
         print(f"{infer_info}_{i}")
         if batch_data is None:
@@ -173,13 +180,7 @@ def main():
             pred_score = infer_result['pred_score']
             gt_label_tensor = infer_result['gt_label_tensor']
             
-            # Create the dictionary for evaluation
-            result_stat = {}
-            for class_name in SUPER_CLASS_MAP.keys():
-                result_stat[class_name] = {}
-                for iou_threshold in [0.3, 0.5, 0.7]:
-                    result_stat[class_name][iou_threshold] = \
-                    {'tp': [], 'fp': [], 'gt': 0, 'score': []}
+            
             
             # eval_utils.caluclate_tp_fp(pred_box_tensor,
             #                         pred_score,

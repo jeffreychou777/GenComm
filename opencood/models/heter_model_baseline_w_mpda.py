@@ -281,11 +281,14 @@ class HeterModelBaselineWMPDA(nn.Module):
         """
         
         if not self.training and self.missing_message:  # for missing_massage inference
-            # 对heter_message应用mask，保持ego不变，其余40%置0
-            print("Inference missing message")
+            # 对heter_message应用mask，保持ego不变，其余20%置0
+            missing_level = 0.05
+            noise_level = 3
+            print(f"Missing:{missing_level} Noise:{noise_level} inference")
             for i in range(1, heter_feature_2d.shape[0]):
-                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > 0.05
-                heter_feature_2d[i] = heter_feature_2d[i] * mask
+                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > missing_level
+                noise = torch.randn_like(heter_feature_2d[i]) * noise_level
+                heter_feature_2d[i] = heter_feature_2d[i] * mask + noise
 
         
         if self.spatial_shrinker_flag:

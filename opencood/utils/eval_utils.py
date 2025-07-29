@@ -369,6 +369,8 @@ def eval_final_results_v2xreal(result_stat, save_path, global_sort_detections=Tr
         for class_name in class_names:
             mAP += dump_dict[class_name][iou_threshold]['ap']
         print(f'mAP@{iou_threshold} is {mAP / len(class_names):.3f}', end=' ')
+    
+    
     if global_sort_detections:
         global_sort_str = "global_sort"
     else:

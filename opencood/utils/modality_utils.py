@@ -41,14 +41,14 @@ def generate_test_modality_assign_in_order(dataset_root):
             print(f"Warning: Scenario {scenario_name} has {len(cav_ids)} CAVs, exceeding limit of 4")
             continue
         
-        # 按cav_id排序（按照 2 1 -1 -2 的顺序）
+        # 按cav_id排序（按照 1 2 -1 -2 的顺序）
         if len(cav_ids) > 0:
             try:
-                # 自定义排序：正数从大到小，然后负数从大到小（-1, -2）
+                # 自定义排序：正数从小到大，然后负数从大到小（-1, -2）
                 def custom_sort_key(x):
                     num = int(x)
                     if num > 0:
-                        return (0, -num)  # 正数：优先级0，按数值从大到小
+                        return (0, num)  # 正数：优先级0，按数值从小到大
                     else:
                         return (1, -num)  # 负数：优先级1，按数值从大到小（-1在-2前面）
                 

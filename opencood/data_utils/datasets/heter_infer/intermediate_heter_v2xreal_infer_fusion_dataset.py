@@ -53,6 +53,7 @@ def getIntermediateheterv2xrealinferFusionDataset(cls):
         def __init__(self, params, visualize, train=True):
             super().__init__(params, visualize, train)
             self.use_cav = params['use_cav']
+            self.anchor_box, self.num_anchors_per_location = self.post_processor.generate_anchor_box_v2xreal()
             # e.g. 2, and self.max_cav = 5
             # we will use 5 cav to generate gt boxes, but only use 2 cav to do the fusion.
             self.sensor_type_dict = {
@@ -236,7 +237,7 @@ def getIntermediateheterv2xrealinferFusionDataset(cls):
 
             # generate single view GT label
             if self.supervise_single or self.heterogeneous:
-                single_label_dicts = self.post_processor.collate_batch(single_label_list)
+                single_label_dicts = self.post_processor.collate_batch_v2xreal(single_label_list)
                 single_object_bbx_center = torch.from_numpy(np.array(single_object_bbx_center_list))
                 single_object_bbx_mask = torch.from_numpy(np.array(single_object_bbx_mask_list))
                 processed_data_dict['ego'].update({
@@ -295,7 +296,7 @@ def getIntermediateheterv2xrealinferFusionDataset(cls):
 
             # make sure bounding boxes across all frames have the same number
             object_bbx_center = \
-                np.zeros((self.params['postprocess']['max_num'], 7))
+                np.zeros((self.params['postprocess']['max_num'], 8))
             mask = np.zeros(self.params['postprocess']['max_num'])
             object_bbx_center[:object_stack.shape[0], :] = object_stack
             mask[:object_stack.shape[0]] = 1
@@ -312,9 +313,10 @@ def getIntermediateheterv2xrealinferFusionDataset(cls):
 
             # generate targets label
             label_dict = \
-                self.post_processor.generate_label(
+                self.post_processor.generate_label_v2xreal(
                     gt_box_center=object_bbx_center,
                     anchors=self.anchor_box,
+                    num_anchors_per_location=self.num_anchors_per_location,
                     mask=mask)
 
             processed_data_dict['ego'].update(
@@ -322,6 +324,7 @@ def getIntermediateheterv2xrealinferFusionDataset(cls):
                 'object_bbx_mask': mask,
                 'object_ids': [object_id_stack[i] for i in unique_indices],
                 'anchor_box': self.anchor_box,
+                'num_anchors_per_location': self.num_anchors_per_location,
                 'label_dict': label_dict,
                 'cav_num': cav_num,
                 'pairwise_t_matrix': pairwise_t_matrix,

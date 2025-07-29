@@ -34,7 +34,7 @@ vis_codebook = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou
 
 v2xreal = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/lidar_attfuse_m3.yaml'
 
-v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaseline_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05'
+v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/V2XReal_m1m2_att'
 
 v2xreal_gencomm = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/gencomm/m4_gencomm_attfuse.yaml'
 v2xreal_backalign = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m2_att'

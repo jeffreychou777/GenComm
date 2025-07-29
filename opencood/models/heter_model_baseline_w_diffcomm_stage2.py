@@ -37,7 +37,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-
+        self.trick = args.get('trick', False)
         self.ego_modality = args['ego_modality']
 
         self.cav_range = args['lidar_range']
@@ -89,7 +89,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             """
             message_extractor building
             """
-            if 'message_extractor' in model_setting:
+            if 'message_extractor' in args:
                 setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(args['message_extractor']['in_ch'], args['message_extractor']['out_ch']))
             else:
                 setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
@@ -149,8 +149,12 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         if 'shrink_header' in args:
             self.shrink_flag = True
             self.shrink_conv = DownsampleConv(args['shrink_header'])
-
-        self.enhancer = Enhancerv12(128, [8, 8], 4)
+        if 'enhancer' in args:
+            self.enhancer = Enhancerv12(self.args['enhancer']['in_ch'], [8, 8], 4)
+            print("use enhancev12")
+        else:
+            self.enhancer = Enhancerv12(128, [8, 8], 4)
+        
         self.fix_modules += ["enhancer"]
 
         """
@@ -256,7 +260,7 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             # 对heter_message应用mask，保持ego不变，其余20%置0
             print("Missing message inference")
             for i in range(1, heter_message.shape[0]):
-                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.05
+                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.1
                 heter_message[i] = heter_message[i] * mask
         
         if self.compress:
@@ -319,11 +323,13 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         #                     'pred_feature': pred_feature})
 
         # return output_dict
-        spatial_mask = torch.any(heter_feature_2d, dim=1).to(torch.uint8).unsqueeze(1).to(heter_feature_2d.device)
+        if self.trick:
+            spatial_mask = torch.any(heter_feature_2d, dim=1).to(torch.uint8).unsqueeze(1).to(heter_feature_2d.device)
         gt_feature = heter_feature_2d
         gen_data_dict = self.diffcomm(heter_feature_2d, heter_message, record_len)
         output_dict.update({'gt_feature': gt_feature,
                             'pred_feature': gen_data_dict['pred_feature']})
+        heter_feature_2d = gen_data_dict['pred_feature']
         
         note = 'm1m3_cb'
         # vis_bev(heter_message[0].squeeze(0).detach().cpu().numpy(), type=note + 'ego_condi')
@@ -335,16 +341,17 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
         # vis_bev(gen_data_dict['pred_feature'][0].detach().cpu().numpy(), type=note + 'ego_gen')
         # vis_bev(gen_data_dict['pred_feature'][1].detach().cpu().numpy(), type=note + 'cav_gen')
         
-        heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
+        if self.trick:
+            heter_feature_2d = gen_data_dict['pred_feature'] * spatial_mask
         # heter_feature_2d = gen_data_dict['pred_feature']
 
         # replace ego feat ure with gt_feature
-        split_gt_feature = regroup(gt_feature, record_len)
-        split_pred_feature = regroup(heter_feature_2d, record_len)
-        ego_index = 0
-        for index in range(len(split_gt_feature)):
-            heter_feature_2d[ego_index] = split_gt_feature[index][0]
-            ego_index = ego_index + split_gt_feature[index].shape[0]
+            split_gt_feature = regroup(gt_feature, record_len)
+            split_pred_feature = regroup(heter_feature_2d, record_len)
+            ego_index = 0
+            for index in range(len(split_gt_feature)):
+                heter_feature_2d[ego_index] = split_gt_feature[index][0]
+                ego_index = ego_index + split_gt_feature[index].shape[0]
             
         
         if len(heter_feature_2d.shape) == 3:

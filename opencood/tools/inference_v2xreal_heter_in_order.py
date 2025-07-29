@@ -182,6 +182,13 @@ def main():
         # result_stat = {0.3: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
         #             0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
         #             0.7: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
+        # Create the dictionary for evaluation
+        result_stat = {}
+        for class_name in SUPER_CLASS_MAP.keys():
+            result_stat[class_name] = {}
+            for iou_threshold in [0.3, 0.5, 0.7]:
+                result_stat[class_name][iou_threshold] = \
+                {'tp': [], 'fp': [], 'gt': 0, 'score': []}
 
         
         infer_info = opt.fusion_method + opt.note + f"_use_cav{use_cav}"
@@ -248,13 +255,7 @@ def main():
                 gt_label_tensor = infer_result['gt_label_tensor']
                 
   
-                # Create the dictionary for evaluation
-                result_stat = {}
-                for class_name in SUPER_CLASS_MAP.keys():
-                    result_stat[class_name] = {}
-                    for iou_threshold in [0.3, 0.5, 0.7]:
-                        result_stat[class_name][iou_threshold] = \
-                        {'tp': [], 'fp': [], 'gt': 0, 'score': []}
+                
                 for class_id, class_name in enumerate(result_stat.keys()):
                         class_id += 1
                         for iou_threshold in result_stat[class_name].keys():
@@ -288,10 +289,11 @@ def main():
                     #                     method='bev',
                     #                     left_hand=left_hand)
             torch.cuda.empty_cache()
+            
 
-        _, ap50, ap70 = eval_utils.eval_final_results_v2xreal(result_stat,
+        eval_utils.eval_final_results_v2xreal(result_stat,
                                     opt.model_dir, global_sort_detections=True, infer_info = infer_info)
-        _, ap50, ap70 = eval_utils.eval_final_results_v2xreal(result_stat,
+        eval_utils.eval_final_results_v2xreal(result_stat,
                                     opt.model_dir, global_sort_detections=False, infer_info = infer_info)
 
 
