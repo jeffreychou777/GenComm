@@ -89,7 +89,10 @@ class HeterModelBaselineWDiffCommStage2(nn.Module):
             """
             message_extractor building
             """
-            setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
+            if 'message_extractor' in model_setting:
+                setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(args['message_extractor']['in_ch'], args['message_extractor']['out_ch']))
+            else:
+                setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(128, 2))
             # setattr(self, f"message_extractor_{modality_name}", nn.Conv2d(128, 2, kernel_size=1))
             
 

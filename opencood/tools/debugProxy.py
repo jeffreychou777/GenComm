@@ -40,7 +40,10 @@ v2xreal_gencomm = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTE
 v2xreal_backalign = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m2_att'
 v2xreal_codebook = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/V2XReal_m1m2m3m4_att'
 v2xreal_mpda = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/V2XReal_m1m2m3m4_att'
-args = v2xreal_codebook
+
+org_heter_order = 'python opencood/tools/inference_heter_in_order.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m2m3_att --use_cav [2,3]'
+v2xreal_heter_infer = 'python opencood/tools/inference_v2xreal_heter_in_order.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/V2XReal_m1m2_att --use_cav [2]'
+args = v2xreal_heter_infer
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 
 # args = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/verify/m1_att_diffcomm_dropout.yaml'

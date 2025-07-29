@@ -8,6 +8,7 @@ from opencood.data_utils.datasets.intermediate_pnpda_fusion_dataset import getIn
 from opencood.data_utils.datasets.intermediate_heter_adapter_fusion_dataset import getIntermediateheteradapterFusionDataset
 from opencood.data_utils.datasets.intermediate_heter_v2xreal_fusion_dataset import getIntermediateheterv2xrealFusionDataset
 from opencood.data_utils.datasets.heter_infer.intermediate_heter_infer_fusion_dataset import getIntermediateheterinferFusionDataset
+from opencood.data_utils.datasets.heter_infer.intermediate_heter_v2xreal_infer_fusion_dataset import getIntermediateheterv2xrealinferFusionDataset
 
 from opencood.data_utils.datasets.basedataset.opv2v_basedataset import OPV2VBaseDataset
 from opencood.data_utils.datasets.basedataset.v2xsim_basedataset import V2XSIMBaseDataset
@@ -21,7 +22,7 @@ def build_dataset(dataset_cfg, visualize=False, train=True):
     dataset_name = dataset_cfg['fusion']['dataset']
 
     assert fusion_name in ['late', 'lateheter', 'intermediate', 'intermediate2stage', 'intermediateheter', 'early', 'intermediateheterv2xreal',
-                           'intermediateheterinfer', 'intermediatepnpda', 'intermediateheteradapter', 'intermediateheterv2xreal']
+                           'intermediateheterinfer','intermediateheterv2xrealinfer', 'intermediatepnpda', 'intermediateheteradapter', 'intermediateheterv2xreal']
     assert dataset_name in ['opv2v', 'v2xsim', 'dairv2x', 'v2xset', 'opv2v4stamp', 'v2xreal']
 
     fusion_dataset_func = "get" + fusion_name.capitalize() + "FusionDataset"

@@ -24,11 +24,12 @@ import open3d as o3d
 from torch.utils.data import DataLoader, Subset
 import numpy as np
 import opencood.hypes_yaml.yaml_utils as yaml_utils
-from opencood.tools import train_utils, inference_utils
+from opencood.tools import train_utils, inference_utils_v2xreal
 from opencood.data_utils.datasets import build_dataset
 from opencood.utils import eval_utils
 from opencood.visualization import vis_utils, my_vis, simple_vis
 from opencood.utils.common_utils import update_dict
+from opencood.data_utils import SUPER_CLASS_MAP
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
@@ -177,10 +178,10 @@ def main():
                                 pin_memory=False,
                                 drop_last=False)
         
-        # Create the dictionary for evaluation
-        result_stat = {0.3: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
-                    0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
-                    0.7: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
+        # # Create the dictionary for evaluation
+        # result_stat = {0.3: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
+        #             0.5: {'tp': [], 'fp': [], 'gt': 0, 'score': []},                
+        #             0.7: {'tp': [], 'fp': [], 'gt': 0, 'score': []}}
 
         
         infer_info = opt.fusion_method + opt.note + f"_use_cav{use_cav}"
@@ -225,15 +226,15 @@ def main():
                                                             opencood_dataset,
                                                             use_cav)
                 elif opt.fusion_method == 'intermediate':
-                    infer_result = inference_utils.inference_intermediate_fusion(batch_data,
+                    infer_result = inference_utils_v2xreal.inference_intermediate_fusion(batch_data,
                                                                     model,
                                                                     opencood_dataset)
                 elif opt.fusion_method == 'no':
-                    infer_result = inference_utils.inference_no_fusion(batch_data,
+                    infer_result = inference_utils_v2xreal.inference_no_fusion(batch_data,
                                                                     model,
                                                                     opencood_dataset)
                 elif opt.fusion_method == 'single':
-                    infer_result = inference_utils.inference_no_fusion(batch_data,
+                    infer_result = inference_utils_v2xreal.inference_no_fusion(batch_data,
                                                                     model,
                                                                     opencood_dataset,
                                                                     single_gt=True)
@@ -244,28 +245,32 @@ def main():
                 pred_box_tensor = infer_result['pred_box_tensor']
                 gt_box_tensor = infer_result['gt_box_tensor']
                 pred_score = infer_result['pred_score']
+                gt_label_tensor = infer_result['gt_label_tensor']
                 
-                eval_utils.caluclate_tp_fp(pred_box_tensor,
-                                        pred_score,
-                                        gt_box_tensor,
-                                        result_stat,
-                                        0.3)
-                eval_utils.caluclate_tp_fp(pred_box_tensor,
-                                        pred_score,
-                                        gt_box_tensor,
-                                        result_stat,
-                                        0.5)
-                eval_utils.caluclate_tp_fp(pred_box_tensor,
-                                        pred_score,
-                                        gt_box_tensor,
-                                        result_stat,
-                                        0.7)
+  
+                # Create the dictionary for evaluation
+                result_stat = {}
+                for class_name in SUPER_CLASS_MAP.keys():
+                    result_stat[class_name] = {}
+                    for iou_threshold in [0.3, 0.5, 0.7]:
+                        result_stat[class_name][iou_threshold] = \
+                        {'tp': [], 'fp': [], 'gt': 0, 'score': []}
+                for class_id, class_name in enumerate(result_stat.keys()):
+                        class_id += 1
+                        for iou_threshold in result_stat[class_name].keys():
+                            keep_index_pred = pred_score[:, -1] == class_id
+                            keep_index_gt = gt_label_tensor == class_id
+                            eval_utils.caluclate_tp_fp(pred_box_tensor[keep_index_pred, ...],
+                                                    pred_score[keep_index_pred, 0],
+                                                    gt_box_tensor[keep_index_gt, ...],
+                                                    result_stat[class_name],
+                                                    iou_threshold)
 
                 if not opt.no_score:
                     infer_result.update({'score_tensor': pred_score})
 
                 if getattr(opencood_dataset, "heterogeneous", False):
-                    cav_box_np, agent_modality_list = inference_utils.get_cav_box(batch_data)
+                    cav_box_np, agent_modality_list = inference_utils_v2xreal.get_cav_box(batch_data)
                     infer_result.update({"cav_box_np": cav_box_np, \
                                         "agent_modality_list": agent_modality_list})
 
@@ -274,19 +279,19 @@ def main():
                     if not os.path.exists(vis_save_path_root):
                         os.makedirs(vis_save_path_root)
 
-                    vis_save_path = os.path.join(vis_save_path_root, 'bev_%05d.png' % i)
-                    simple_vis.visualize(infer_result,
-                                        batch_data['ego'][
-                                            'origin_lidar'][0],
-                                        hypes['postprocess']['gt_range'],
-                                        vis_save_path,
-                                        method='bev',
-                                        left_hand=left_hand)
+                    # vis_save_path = os.path.join(vis_save_path_root, 'bev_%05d.png' % i)
+                    # simple_vis.visualize(infer_result,
+                    #                     batch_data['ego'][
+                    #                         'origin_lidar'][0],
+                    #                     hypes['postprocess']['gt_range'],
+                    #                     vis_save_path,
+                    #                     method='bev',
+                    #                     left_hand=left_hand)
             torch.cuda.empty_cache()
 
-        _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
+        _, ap50, ap70 = eval_utils.eval_final_results_v2xreal(result_stat,
                                     opt.model_dir, global_sort_detections=True, infer_info = infer_info)
-        _, ap50, ap70 = eval_utils.eval_final_results(result_stat,
+        _, ap50, ap70 = eval_utils.eval_final_results_v2xreal(result_stat,
                                     opt.model_dir, global_sort_detections=False, infer_info = infer_info)
 
 
