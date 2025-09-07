@@ -54,9 +54,12 @@ def getIntermediateheterFusionDataset(cls):
                                         else False
             self.proj_first = False if 'proj_first' not in params['fusion']['args']\
                                          else params['fusion']['args']['proj_first']
-
-            self.anchor_box = self.post_processor.generate_anchor_box()
-            self.anchor_box_torch = torch.from_numpy(self.anchor_box)
+            
+            if params['fusion']['dataset'] == 'v2xreal':
+                self.anchor_box, self.num_anchors_per_location = self.post_processor.generate_anchor_box_v2xreal()
+            else:
+                self.anchor_box = self.post_processor.generate_anchor_box()
+                self.anchor_box_torch = torch.from_numpy(self.anchor_box)
 
             self.heterogeneous = True
             self.modality_assignment = None if ('assignment_path' not in params['heter'] or params['heter']['assignment_path'] is None) \
@@ -274,7 +277,11 @@ def getIntermediateheterFusionDataset(cls):
 
             # generate single view GT label
             if self.supervise_single or self.heterogeneous:
-                single_label_dicts = self.post_processor.collate_batch(single_label_list)
+                if self.params['fusion']['dataset'] == 'v2xreal':
+                    single_label_dicts = self.post_processor.collate_batch_v2xreal(single_label_list)
+                else:
+                    single_label_dicts = self.post_processor.collate_batch(single_label_list)
+
                 single_object_bbx_center = torch.from_numpy(np.array(single_object_bbx_center_list))
                 single_object_bbx_mask = torch.from_numpy(np.array(single_object_bbx_mask_list))
                 processed_data_dict['ego'].update({
@@ -322,8 +329,12 @@ def getIntermediateheterFusionDataset(cls):
                 object_stack = object_stack[unique_indices]
 
             # make sure bounding boxes across all frames have the same number
-            object_bbx_center = \
-                np.zeros((self.params['postprocess']['max_num'], 7))
+            if self.params['fusion']['dataset'] == 'v2xreal':
+                object_bbx_center = \
+                    np.zeros((self.params['postprocess']['max_num'], 8))  # in V2X-Real, 7 + 1(class)
+            else:
+                object_bbx_center = \
+                    np.zeros((self.params['postprocess']['max_num'], 7))
             mask = np.zeros(self.params['postprocess']['max_num'])
             object_bbx_center[:object_stack.shape[0], :] = object_stack
             mask[:object_stack.shape[0]] = 1
@@ -352,17 +363,28 @@ def getIntermediateheterFusionDataset(cls):
             processed_data_dict['ego'].update({'agent_modality_list': agent_modality_list})
 
             # generate targets label
-            label_dict = \
-                self.post_processor.generate_label(
+            if self.params['fusion']['dataset'] == 'v2xreal':
+                label_dict = \
+                self.post_processor.generate_label_v2xreal(
                     gt_box_center=object_bbx_center,
                     anchors=self.anchor_box,
+                    num_anchors_per_location = self.num_anchors_per_location,
                     mask=mask)
+            else:
+                label_dict = \
+                    self.post_processor.generate_label(
+                        gt_box_center=object_bbx_center,
+                        anchors=self.anchor_box,
+                        mask=mask)
 
+            
             processed_data_dict['ego'].update(
                 {'object_bbx_center': object_bbx_center,
                 'object_bbx_mask': mask,
                 'object_ids': [object_id_stack[i] for i in unique_indices],
                 'anchor_box': self.anchor_box,
+                'num_anchors_per_location': self.num_anchors_per_location \
+                    if hasattr(self, 'num_anchors_per_location') else None,  # only used in v2xreal
                 'label_dict': label_dict,
                 'cav_num': cav_num,
                 'pairwise_t_matrix': pairwise_t_matrix,
@@ -453,9 +475,16 @@ def getIntermediateheterFusionDataset(cls):
             object_bbx_center, object_bbx_mask, object_ids = self.generate_object_center(
                 [selected_cav_base], selected_cav_base['params']['lidar_pose']
             )
-            label_dict = self.post_processor.generate_label(
-                gt_box_center=object_bbx_center, anchors=self.anchor_box, mask=object_bbx_mask
+            if self.params['fusion']['dataset'] == 'v2xreal':
+                label_dict = self.post_processor.generate_label_v2xreal(
+                gt_box_center=object_bbx_center, anchors=self.anchor_box, 
+                num_anchors_per_location = self.num_anchors_per_location,
+                mask=object_bbx_mask,
             )
+            else:
+                label_dict = self.post_processor.generate_label(
+                    gt_box_center=object_bbx_center, anchors=self.anchor_box, mask=object_bbx_mask
+                )
             selected_cav_processed.update({
                                 "single_label_dict": label_dict,
                                 "single_object_bbx_center": object_bbx_center,
@@ -688,7 +717,9 @@ def getIntermediateheterFusionDataset(cls):
                                     'pairwise_t_matrix': pairwise_t_matrix,
                                     'lidar_pose_clean': lidar_pose_clean,
                                     'lidar_pose': lidar_pose,
-                                    'anchor_box': self.anchor_box_torch})
+                                    'anchor_box': self.anchor_box \
+                                        if self.params['fusion']['dataset'] == 'v2xreal' \
+                                        else self.anchor_box_torch}) # if v2xreal case, anchor_box is a list
 
 
             if self.visualize:
@@ -732,9 +763,15 @@ def getIntermediateheterFusionDataset(cls):
                 return None
 
             # check if anchor box in the batch
-            if batch[0]['ego']['anchor_box'] is not None:
-                output_dict['ego'].update({'anchor_box':
-                    self.anchor_box_torch})
+            if self.params['fusion']['dataset'] == 'v2xreal':
+                if batch[0]['ego']['anchor_box'] is not None:
+                    output_dict['ego'].update({'anchor_box':
+                        self.anchor_box,
+                        "num_anchors_per_location": self.num_anchors_per_location})
+            else:
+                if batch[0]['ego']['anchor_box'] is not None:
+                    output_dict['ego'].update({'anchor_box':
+                        self.anchor_box_torch})
 
             # save the transformation matrix (4, 4) to ego vehicle
             # transformation is only used in post process (no use.)
@@ -777,11 +814,18 @@ def getIntermediateheterFusionDataset(cls):
             gt_box_tensor : torch.Tensor
                 The tensor of gt bounding box.
             """
-            pred_box_tensor, pred_score = \
-                self.post_processor.post_process(data_dict, output_dict)
-            gt_box_tensor = self.post_processor.generate_gt_bbx(data_dict)
+            if self.params['fusion']['dataset'] == 'v2xreal':
+                pred_box_tensor, pred_score = \
+                    self.post_processor.post_process_v2xreal(data_dict, output_dict)
+                gt_box_tensor, gt_label_tensor = self.post_processor.generate_gt_bbx_v2xreal(data_dict)
 
-            return pred_box_tensor, pred_score, gt_box_tensor
+                return pred_box_tensor, pred_score, gt_box_tensor, gt_label_tensor
+            else:   
+                pred_box_tensor, pred_score = \
+                    self.post_processor.post_process(data_dict, output_dict)
+                gt_box_tensor = self.post_processor.generate_gt_bbx(data_dict)
+
+                return pred_box_tensor, pred_score, gt_box_tensor
 
 
     return IntermediateheterFusionDataset

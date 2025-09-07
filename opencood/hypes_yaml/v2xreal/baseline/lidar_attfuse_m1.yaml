@@ -45,7 +45,7 @@ heter:
 
 
 fusion:
-  core_method: 'intermediateheterv2xreal'
+  core_method: 'intermediateheter'
   dataset: 'v2xreal'
   args: 
     proj_first: false

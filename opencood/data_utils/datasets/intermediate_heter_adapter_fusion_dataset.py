@@ -173,6 +173,402 @@ def getIntermediateheteradapterFusionDataset(cls):
 
             self.visible = params["train_params"].get("visible", False)
 
+        def __getitem__(self, idx):
+            base_data_dict = self.retrieve_base_data(idx)
+            base_data_dict = add_noise_data_dict(base_data_dict, self.params["noise_setting"])
+
+            processed_data_dict = OrderedDict()
+            processed_data_dict["ego"] = {}
+
+            ego_id = -1
+            ego_lidar_pose = []
+            ego_cav_base = None
+
+            # first find the ego vehicle's lidar pose
+            for cav_id, cav_content in base_data_dict.items():
+                if cav_content["ego"]:
+                    ego_id = cav_id
+                    ego_lidar_pose = cav_content["params"]["lidar_pose"]
+                    ego_cav_base = cav_content
+                    break
+
+            assert cav_id == list(base_data_dict.keys())[0], "The first element in the OrderedDict must be ego"
+            assert ego_id != -1
+            assert len(ego_lidar_pose) > 0
+
+            agent_modality_list = []
+            object_stack = []
+            object_id_stack = []
+            single_label_list = []
+            single_object_bbx_center_list = []
+            single_object_bbx_mask_list = []
+            exclude_agent = []
+            lidar_pose_list = []
+            lidar_pose_clean_list = []
+            cav_id_list = []
+            projected_lidar_clean_list = []  # disconet
+            transformation_matrix_list = []
+            transformation_matrix_clean_list = []
+
+            if self.visualize or self.kd_flag:
+                projected_lidar_stack = []
+                input_list_m0_proj = []
+                input_list_m1_proj = []  # 2023.8.31 to correct discretization errors with kd flag
+                input_list_m2_proj = []
+                input_list_m3_proj = []
+                input_list_m4_proj = []
+
+            # loop over all CAVs to process information
+            for cav_id, selected_cav_base in base_data_dict.items():
+                # check if the cav is within the communication range with ego
+                distance = math.sqrt(
+                    (selected_cav_base["params"]["lidar_pose"][0] - ego_lidar_pose[0]) ** 2
+                    + (selected_cav_base["params"]["lidar_pose"][1] - ego_lidar_pose[1]) ** 2
+                )
+
+                # if distance is too far, we will just skip this agent
+                if distance > self.params["comm_range"]:
+                    exclude_agent.append(cav_id)
+                    continue
+
+                # if modality not match
+                if self.adaptor.unmatched_modality(selected_cav_base["modality_name"]):
+                    exclude_agent.append(cav_id)
+                    continue
+
+                lidar_pose_clean_list.append(selected_cav_base["params"]["lidar_pose_clean"])
+                lidar_pose_list.append(selected_cav_base["params"]["lidar_pose"])  # 6dof pose
+                cav_id_list.append(cav_id)
+
+            if len(cav_id_list) == 0:
+                return None
+
+            for cav_id in exclude_agent:
+                base_data_dict.pop(cav_id)
+
+            ########## Updated by Yifan Lu 2022.1.26 ############
+            # box align to correct pose.
+            # stage1_content contains all agent. Even out of comm range.
+            if self.box_align and str(idx) in self.stage1_result.keys():
+                from opencood.models.sub_modules.box_align_v2 import box_alignment_relative_sample_np
+
+                stage1_content = self.stage1_result[str(idx)]
+                if stage1_content is not None:
+                    all_agent_id_list = stage1_content["cav_id_list"]  # include those out of range
+                    all_agent_corners_list = stage1_content["pred_corner3d_np_list"]
+                    all_agent_uncertainty_list = stage1_content["uncertainty_np_list"]
+
+                    cur_agent_id_list = cav_id_list
+                    cur_agent_pose = [base_data_dict[cav_id]["params"]["lidar_pose"] for cav_id in cav_id_list]
+                    cur_agnet_pose = np.array(cur_agent_pose)
+                    cur_agent_in_all_agent = [
+                        all_agent_id_list.index(cur_agent) for cur_agent in cur_agent_id_list
+                    ]  # indexing current agent in `all_agent_id_list`
+
+                    pred_corners_list = [
+                        np.array(all_agent_corners_list[cur_in_all_ind], dtype=np.float64)
+                        for cur_in_all_ind in cur_agent_in_all_agent
+                    ]
+                    uncertainty_list = [
+                        np.array(all_agent_uncertainty_list[cur_in_all_ind], dtype=np.float64)
+                        for cur_in_all_ind in cur_agent_in_all_agent
+                    ]
+
+                    if sum([len(pred_corners) for pred_corners in pred_corners_list]) != 0:
+                        refined_pose = box_alignment_relative_sample_np(
+                            pred_corners_list, cur_agnet_pose, uncertainty_list=uncertainty_list, **self.box_align_args
+                        )
+                        cur_agnet_pose[:, [0, 1, 4]] = refined_pose
+
+                        for i, cav_id in enumerate(cav_id_list):
+                            lidar_pose_list[i] = cur_agnet_pose[i].tolist()
+                            base_data_dict[cav_id]["params"]["lidar_pose"] = cur_agnet_pose[i].tolist()
+
+            pairwise_t_matrix = get_pairwise_transformation(base_data_dict, self.max_cav, self.proj_first)
+
+            lidar_poses = np.array(lidar_pose_list).reshape(-1, 6)  # [N_cav, 6]
+            lidar_poses_clean = np.array(lidar_pose_clean_list).reshape(-1, 6)  # [N_cav, 6]
+
+            # merge preprocessed features from different cavs into the same dict
+            cav_num = len(cav_id_list)
+            
+            ##### STAMP #####
+            protocol_sensor_type = self.sensor_type_dict["m0"]
+            for modality_name in self.modality_name_list:
+                exec(f"label_dict_list_{modality_name} = []")
+
+                sensor_type = self.sensor_type_dict[modality_name]
+                if sensor_type == "lidar" or sensor_type == "camera":
+                    exec(f"input_list_{modality_name} = []")
+                elif "camera" in sensor_type and "lidar" in sensor_type:
+                    exec(f"input_list_{modality_name} = dict()")
+                    eval(f"input_list_{modality_name}")["lidar"] = []
+                    eval(f"input_list_{modality_name}")["camera"] = []
+                else:
+                    raise ValueError("Not support this type of sensor")
+
+            if protocol_sensor_type == "lidar" or protocol_sensor_type == "camera":
+                exec(f"input_list_m0 = []")
+            elif "camera" in protocol_sensor_type and "lidar" in protocol_sensor_type:
+                exec(f"input_list_m0 = dict()")
+                eval(f"input_list_m0")["lidar"] = []
+                eval(f"input_list_m0")["camera"] = []
+            else:
+                raise ValueError("Not support this type of sensor")
+            ##### STAMP #####
+
+            for _i, cav_id in enumerate(cav_id_list):
+                selected_cav_base = base_data_dict[cav_id]
+                modality_name = selected_cav_base["modality_name"]
+                sensor_type = self.sensor_type_dict[selected_cav_base["modality_name"]]
+
+                # dynamic object center generator! for heterogeneous input
+                if not self.visualize:
+                    if "lidar" in sensor_type:
+                        self.generate_object_center = eval(f"self.generate_object_center_lidar")
+                    else:
+                        self.generate_object_center = eval(f"self.generate_object_center_camera")
+                # need discussion. In test phase, use lidar label.
+                else:
+                    self.generate_object_center = self.generate_object_center_lidar
+
+                selected_cav_processed = self.get_item_single_car(selected_cav_base, ego_cav_base)
+                ##### STAMP #####
+                transformation_matrix_list.append(selected_cav_processed["transformation_matrix"])
+                transformation_matrix_clean_list.append(selected_cav_processed["transformation_matrix_clean"])
+                ##### STAMP #####
+                object_stack.append(selected_cav_processed["object_bbx_center"])
+                object_id_stack += selected_cav_processed["object_ids"]
+                ##### STAMP #####
+                eval(f"label_dict_list_{modality_name}").append(selected_cav_processed["single_label_dict"])
+                ##### STAMP #####
+                
+                if sensor_type == "lidar":
+                    eval(f"input_list_{modality_name}").append(
+                        selected_cav_processed[f"processed_features_{modality_name}"]
+                    )
+                elif sensor_type == "camera":
+                    eval(f"input_list_{modality_name}").append(selected_cav_processed[f"image_inputs_{modality_name}"])
+                elif "camera" in sensor_type and "lidar" in sensor_type:
+                    eval(f"input_list_{modality_name}")["lidar"].append(
+                        selected_cav_processed[f"processed_features_{modality_name}"]
+                    )
+                    eval(f"input_list_{modality_name}")["camera"].append(
+                        selected_cav_processed[f"image_inputs_{modality_name}"]
+                    )
+                else:
+                    raise ValueError("Not support this type of sensor")
+                ##### STAMP #####
+                sensor_type_protocol = self.sensor_type_dict["m0"]
+                if sensor_type_protocol == "lidar":
+                    eval(f"input_list_m0").append(selected_cav_processed[f"processed_features_m0"])
+                elif sensor_type_protocol == "camera":
+                    eval(f"input_list_m0").append(selected_cav_processed[f"image_inputs_m0"])
+                elif "camera" in sensor_type_protocol and "lidar" in sensor_type_protocol:
+                    eval(f"input_list_m0")["lidar"].append(selected_cav_processed[f"processed_features_m0"])
+                    eval(f"input_list_m0")["camera"].append(selected_cav_processed[f"image_inputs_m0"])
+                else:
+                    raise ValueError("Not support this type of sensor")
+                ##### STAMP #####
+                agent_modality_list.append(modality_name)
+
+                if self.visualize or self.kd_flag:
+                    # heterogeneous setting do not support disconet' kd
+                    projected_lidar_stack.append(selected_cav_processed["projected_lidar"])
+                    if (sensor_type == "lidar" or "lidar" in sensor_type) and self.kd_flag:
+                        eval(f"input_list_{modality_name}_proj").append(
+                            selected_cav_processed[f"processed_features_{modality_name}_proj"]
+                        )
+
+                if self.supervise_single and self.heterogeneous:
+                    single_label_list.append(selected_cav_processed["single_label_dict"])
+                    single_object_bbx_center_list.append(selected_cav_processed["single_object_bbx_center"])
+                    single_object_bbx_mask_list.append(selected_cav_processed["single_object_bbx_mask"])
+
+            # generate single view GT label
+            if self.supervise_single and self.heterogeneous:
+                single_label_dicts = self.post_processor.collate_batch_stamp(single_label_list)   ## use 'eval' style to call
+                single_object_bbx_center = torch.from_numpy(np.array(single_object_bbx_center_list))
+                single_object_bbx_mask = torch.from_numpy(np.array(single_object_bbx_mask_list))
+                processed_data_dict["ego"].update(
+                    {
+                        "single_label_dict_torch": single_label_dicts,
+                        "single_object_bbx_center_torch": single_object_bbx_center,
+                        "single_object_bbx_mask_torch": single_object_bbx_mask,
+                    }
+                )
+
+            # exculude all repetitve objects, DAIR-V2X
+            if self.params["fusion"]["dataset"] == "dairv2x":
+                if len(object_stack) == 1:
+                    object_stack = object_stack[0]
+                else:
+                    ego_boxes_np = object_stack[0]
+                    cav_boxes_np = object_stack[1]
+                    order = self.params["postprocess"]["order"]
+                    ego_corners_np = box_utils.boxes_to_corners_3d(ego_boxes_np, order)
+                    cav_corners_np = box_utils.boxes_to_corners_3d(cav_boxes_np, order)
+                    ego_polygon_list = list(convert_format(ego_corners_np))
+                    cav_polygon_list = list(convert_format(cav_corners_np))
+                    iou_thresh = 0.05
+
+                    gt_boxes_from_cav = []
+                    for i in range(len(cav_polygon_list)):
+                        cav_polygon = cav_polygon_list[i]
+                        ious = compute_iou(cav_polygon, ego_polygon_list)
+                        if (ious > iou_thresh).any():
+                            continue
+                        gt_boxes_from_cav.append(cav_boxes_np[i])
+
+                    if len(gt_boxes_from_cav):
+                        object_stack_from_cav = np.stack(gt_boxes_from_cav)
+                        object_stack = np.vstack([ego_boxes_np, object_stack_from_cav])
+                    else:
+                        object_stack = ego_boxes_np
+
+                unique_indices = np.arange(object_stack.shape[0])
+                object_id_stack = np.arange(object_stack.shape[0])
+            else:
+                # exclude all repetitive objects, OPV2V-H
+                unique_indices = [object_id_stack.index(x) for x in set(object_id_stack)]
+                object_stack = np.vstack(object_stack)
+                object_stack = object_stack[unique_indices]
+
+            # make sure bounding boxes across all frames have the same number
+            object_bbx_center = np.zeros((self.post_process_params["max_num"], 7))
+            mask = np.zeros(self.post_process_params["max_num"])
+            object_bbx_center[: object_stack.shape[0], :] = object_stack
+            mask[: object_stack.shape[0]] = 1
+
+            for modality_name in self.modality_name_list:
+
+                if eval(f"label_dict_list_{modality_name}"):
+                    label_dict_modality = eval(f"label_dict_list_{modality_name}")
+                    label_dict = {
+                        key: torch.cat([torch.tensor(batch_dict[key]) for batch_dict in label_dict_modality], 0)
+                        for key in label_dict_modality[0]
+                    }
+
+                    processed_data_dict["ego"].update({f"label_dict_{modality_name}": label_dict})
+
+                # if eval(f"label_dict_list_{modality_name}"):
+                #     # label_dict = self.post_processor.collate_batch(eval(f"label_dict_list_{modality_name}"))
+                #     processed_data_dict["ego"].update({f"label_dict_{modality_name}" : eval(f"label_dict_list_{modality_name}")[0]})
+
+            for modality_name in self.modality_name_list + ["m0"]:
+
+                if self.sensor_type_dict[modality_name] == "lidar":
+                    merged_feature_dict = merge_features_to_dict(eval(f"input_list_{modality_name}"))
+                    processed_data_dict["ego"].update({f"input_{modality_name}": merged_feature_dict})  # maybe None
+                elif self.sensor_type_dict[modality_name] == "camera":
+                    merged_image_inputs_dict = merge_features_to_dict(
+                        eval(f"input_list_{modality_name}"), merge="stack"
+                    )
+                    processed_data_dict["ego"].update(
+                        {f"input_{modality_name}": merged_image_inputs_dict}
+                    )  # maybe None
+                elif (
+                    "camera" in self.sensor_type_dict[modality_name] and "lidar" in self.sensor_type_dict[modality_name]
+                ):
+                    merged_feature_dict = merge_features_to_dict(eval(f"input_list_{modality_name}")["lidar"])
+                    merged_image_inputs_dict = merge_features_to_dict(
+                        eval(f"input_list_{modality_name}")["camera"], merge="stack"
+                    )
+                    if not merged_feature_dict or not merged_image_inputs_dict:
+                        processed_data_dict["ego"].update({f"input_{modality_name}": None})
+                    else:
+                        processed_data_dict["ego"].update(
+                            {
+                                f"input_{modality_name}": {
+                                    "lidar": merged_feature_dict,
+                                    "camera": merged_image_inputs_dict,
+                                }
+                            }
+                        )
+                else:
+                    raise ValueError("Not support this type of sensor")
+
+            if self.kd_flag:
+                # heterogenous setting do not support DiscoNet's kd
+                # stack_lidar_np = np.vstack(projected_lidar_stack)
+                # stack_lidar_np = mask_points_by_range(stack_lidar_np,
+                #                             self.params['preprocess'][
+                #                                 'cav_lidar_range'])
+                # stack_feature_processed = self.pre_processor.preprocess(stack_lidar_np)
+                for modality_name in self.modality_name_list:
+                    processed_data_dict["ego"].update(
+                        {
+                            f"input_{modality_name}_proj": merge_features_to_dict(
+                                eval(f"input_list_{modality_name}_proj")
+                            )  # maybe None
+                        }
+                    )
+
+            processed_data_dict["ego"].update({"agent_modality_list": agent_modality_list})
+
+            if self.visible:
+                dynamic_bev = ego_cav_base.get("bev_visibility_corp.png", None)
+            else:
+                dynamic_bev = ego_cav_base.get("bev_dynamic.png", None)
+            road_bev = ego_cav_base.get("bev_static.png", None)
+            lane_bev = ego_cav_base.get("bev_lane.png", None)
+
+            # generate targets label
+            label_dict = self.post_processor.generate_label(
+                gt_box_center=object_bbx_center,
+                anchors=self.anchor_box,
+                mask=mask,
+                dynamic_bev=dynamic_bev,
+                road_bev=road_bev,
+                lane_bev=lane_bev,
+            )
+
+            label_dict_protocol = self.post_processor_protocol.generate_label(
+                gt_box_center=object_bbx_center,
+                anchors=self.anchor_box_protocol,
+                mask=mask,
+                dynamic_bev=dynamic_bev,
+                road_bev=road_bev,
+                lane_bev=lane_bev,
+            )
+
+            processed_data_dict["ego"].update(
+                {
+                    "object_bbx_center": object_bbx_center,
+                    "object_bbx_mask": mask,
+                    "object_ids": [object_id_stack[i] for i in unique_indices],
+                    "anchor_box": self.anchor_box,
+                    # Here we include anchor_box of other modality and for the protocol modality. This information
+                    # should go to each cav data, but it takes a lot of efforts to make this dataset support all
+                    # supervision on all cavs. We will leave it to the future work.
+                    "anchor_box_dict": self.anchor_box_dict,
+                    "label_dict": label_dict,
+                    "label_dict_protocol": label_dict_protocol,
+                    "cav_num": cav_num,
+                    "pairwise_t_matrix": pairwise_t_matrix,
+                    "lidar_poses_clean": lidar_poses_clean,
+                    "lidar_poses": lidar_poses,
+                    "transformation_matrix": torch.from_numpy(np.stack(transformation_matrix_list)),
+                    "transformation_matrix_clean": torch.from_numpy(np.stack(transformation_matrix_clean_list)),
+                }
+            )
+
+            if self.visualize:
+                processed_data_dict["ego"].update({"origin_lidar": np.vstack(projected_lidar_stack)})
+                processed_data_dict["ego"].update(
+                    {
+                        "origin_lidar_modality": np.concatenate(
+                            [
+                                np.ones(len(projected_lidar_stack[i])) * int(agent_modality_list[i][1:])
+                                for i in range(len(projected_lidar_stack))
+                            ]
+                        )
+                    }
+                )
+
+            processed_data_dict["ego"].update({"sample_idx": idx, "cav_id_list": cav_id_list})
+
+            return processed_data_dict
         def get_item_single_car(self, selected_cav_base, ego_cav_base):
             """
             Process a single CAV's information for the train/test pipeline.
@@ -459,396 +855,6 @@ def getIntermediateheteradapterFusionDataset(cls):
             )
 
             return selected_cav_processed
-
-        def __getitem__(self, idx):
-            base_data_dict = self.retrieve_base_data(idx)
-            base_data_dict = add_noise_data_dict(base_data_dict, self.params["noise_setting"])
-
-            processed_data_dict = OrderedDict()
-            processed_data_dict["ego"] = {}
-
-            ego_id = -1
-            ego_lidar_pose = []
-            ego_cav_base = None
-
-            # first find the ego vehicle's lidar pose
-            for cav_id, cav_content in base_data_dict.items():
-                if cav_content["ego"]:
-                    ego_id = cav_id
-                    ego_lidar_pose = cav_content["params"]["lidar_pose"]
-                    ego_cav_base = cav_content
-                    break
-
-            assert cav_id == list(base_data_dict.keys())[0], "The first element in the OrderedDict must be ego"
-            assert ego_id != -1
-            assert len(ego_lidar_pose) > 0
-
-            agent_modality_list = []
-            object_stack = []
-            object_id_stack = []
-            single_label_list = []
-            single_object_bbx_center_list = []
-            single_object_bbx_mask_list = []
-            exclude_agent = []
-            lidar_pose_list = []
-            lidar_pose_clean_list = []
-            cav_id_list = []
-            projected_lidar_clean_list = []  # disconet
-            transformation_matrix_list = []
-            transformation_matrix_clean_list = []
-
-            if self.visualize or self.kd_flag:
-                projected_lidar_stack = []
-                input_list_m0_proj = []
-                input_list_m1_proj = []  # 2023.8.31 to correct discretization errors with kd flag
-                input_list_m2_proj = []
-                input_list_m3_proj = []
-                input_list_m4_proj = []
-
-            # loop over all CAVs to process information
-            for cav_id, selected_cav_base in base_data_dict.items():
-                # check if the cav is within the communication range with ego
-                distance = math.sqrt(
-                    (selected_cav_base["params"]["lidar_pose"][0] - ego_lidar_pose[0]) ** 2
-                    + (selected_cav_base["params"]["lidar_pose"][1] - ego_lidar_pose[1]) ** 2
-                )
-
-                # if distance is too far, we will just skip this agent
-                if distance > self.params["comm_range"]:
-                    exclude_agent.append(cav_id)
-                    continue
-
-                # if modality not match
-                if self.adaptor.unmatched_modality(selected_cav_base["modality_name"]):
-                    exclude_agent.append(cav_id)
-                    continue
-
-                lidar_pose_clean_list.append(selected_cav_base["params"]["lidar_pose_clean"])
-                lidar_pose_list.append(selected_cav_base["params"]["lidar_pose"])  # 6dof pose
-                cav_id_list.append(cav_id)
-
-            if len(cav_id_list) == 0:
-                return None
-
-            for cav_id in exclude_agent:
-                base_data_dict.pop(cav_id)
-
-            ########## Updated by Yifan Lu 2022.1.26 ############
-            # box align to correct pose.
-            # stage1_content contains all agent. Even out of comm range.
-            if self.box_align and str(idx) in self.stage1_result.keys():
-                from opencood.models.sub_modules.box_align_v2 import box_alignment_relative_sample_np
-
-                stage1_content = self.stage1_result[str(idx)]
-                if stage1_content is not None:
-                    all_agent_id_list = stage1_content["cav_id_list"]  # include those out of range
-                    all_agent_corners_list = stage1_content["pred_corner3d_np_list"]
-                    all_agent_uncertainty_list = stage1_content["uncertainty_np_list"]
-
-                    cur_agent_id_list = cav_id_list
-                    cur_agent_pose = [base_data_dict[cav_id]["params"]["lidar_pose"] for cav_id in cav_id_list]
-                    cur_agnet_pose = np.array(cur_agent_pose)
-                    cur_agent_in_all_agent = [
-                        all_agent_id_list.index(cur_agent) for cur_agent in cur_agent_id_list
-                    ]  # indexing current agent in `all_agent_id_list`
-
-                    pred_corners_list = [
-                        np.array(all_agent_corners_list[cur_in_all_ind], dtype=np.float64)
-                        for cur_in_all_ind in cur_agent_in_all_agent
-                    ]
-                    uncertainty_list = [
-                        np.array(all_agent_uncertainty_list[cur_in_all_ind], dtype=np.float64)
-                        for cur_in_all_ind in cur_agent_in_all_agent
-                    ]
-
-                    if sum([len(pred_corners) for pred_corners in pred_corners_list]) != 0:
-                        refined_pose = box_alignment_relative_sample_np(
-                            pred_corners_list, cur_agnet_pose, uncertainty_list=uncertainty_list, **self.box_align_args
-                        )
-                        cur_agnet_pose[:, [0, 1, 4]] = refined_pose
-
-                        for i, cav_id in enumerate(cav_id_list):
-                            lidar_pose_list[i] = cur_agnet_pose[i].tolist()
-                            base_data_dict[cav_id]["params"]["lidar_pose"] = cur_agnet_pose[i].tolist()
-
-            pairwise_t_matrix = get_pairwise_transformation(base_data_dict, self.max_cav, self.proj_first)
-
-            lidar_poses = np.array(lidar_pose_list).reshape(-1, 6)  # [N_cav, 6]
-            lidar_poses_clean = np.array(lidar_pose_clean_list).reshape(-1, 6)  # [N_cav, 6]
-
-            # merge preprocessed features from different cavs into the same dict
-            cav_num = len(cav_id_list)
-            protocol_sensor_type = self.sensor_type_dict["m0"]
-            for modality_name in self.modality_name_list:
-                exec(f"label_dict_list_{modality_name} = []")
-
-                sensor_type = self.sensor_type_dict[modality_name]
-                if sensor_type == "lidar" or sensor_type == "camera":
-                    exec(f"input_list_{modality_name} = []")
-                elif "camera" in sensor_type and "lidar" in sensor_type:
-                    exec(f"input_list_{modality_name} = dict()")
-                    eval(f"input_list_{modality_name}")["lidar"] = []
-                    eval(f"input_list_{modality_name}")["camera"] = []
-                else:
-                    raise ValueError("Not support this type of sensor")
-
-            if protocol_sensor_type == "lidar" or protocol_sensor_type == "camera":
-                exec(f"input_list_m0 = []")
-            elif "camera" in protocol_sensor_type and "lidar" in protocol_sensor_type:
-                exec(f"input_list_m0 = dict()")
-                eval(f"input_list_m0")["lidar"] = []
-                eval(f"input_list_m0")["camera"] = []
-            else:
-                raise ValueError("Not support this type of sensor")
-
-            for _i, cav_id in enumerate(cav_id_list):
-                selected_cav_base = base_data_dict[cav_id]
-                modality_name = selected_cav_base["modality_name"]
-                sensor_type = self.sensor_type_dict[selected_cav_base["modality_name"]]
-
-                # dynamic object center generator! for heterogeneous input
-                if not self.visualize:
-                    if "lidar" in sensor_type:
-                        self.generate_object_center = eval(f"self.generate_object_center_lidar")
-                    else:
-                        self.generate_object_center = eval(f"self.generate_object_center_camera")
-                # need discussion. In test phase, use lidar label.
-                else:
-                    self.generate_object_center = self.generate_object_center_lidar
-
-                selected_cav_processed = self.get_item_single_car(selected_cav_base, ego_cav_base)
-
-                transformation_matrix_list.append(selected_cav_processed["transformation_matrix"])
-                transformation_matrix_clean_list.append(selected_cav_processed["transformation_matrix_clean"])
-                object_stack.append(selected_cav_processed["object_bbx_center"])
-                object_id_stack += selected_cav_processed["object_ids"]
-                eval(f"label_dict_list_{modality_name}").append(selected_cav_processed["single_label_dict"])
-                if sensor_type == "lidar":
-                    eval(f"input_list_{modality_name}").append(
-                        selected_cav_processed[f"processed_features_{modality_name}"]
-                    )
-                elif sensor_type == "camera":
-                    eval(f"input_list_{modality_name}").append(selected_cav_processed[f"image_inputs_{modality_name}"])
-                elif "camera" in sensor_type and "lidar" in sensor_type:
-                    eval(f"input_list_{modality_name}")["lidar"].append(
-                        selected_cav_processed[f"processed_features_{modality_name}"]
-                    )
-                    eval(f"input_list_{modality_name}")["camera"].append(
-                        selected_cav_processed[f"image_inputs_{modality_name}"]
-                    )
-                else:
-                    raise ValueError("Not support this type of sensor")
-
-                sensor_type_protocol = self.sensor_type_dict["m0"]
-                if sensor_type_protocol == "lidar":
-                    eval(f"input_list_m0").append(selected_cav_processed[f"processed_features_m0"])
-                elif sensor_type_protocol == "camera":
-                    eval(f"input_list_m0").append(selected_cav_processed[f"image_inputs_m0"])
-                elif "camera" in sensor_type_protocol and "lidar" in sensor_type_protocol:
-                    eval(f"input_list_m0")["lidar"].append(selected_cav_processed[f"processed_features_m0"])
-                    eval(f"input_list_m0")["camera"].append(selected_cav_processed[f"image_inputs_m0"])
-                else:
-                    raise ValueError("Not support this type of sensor")
-
-                agent_modality_list.append(modality_name)
-
-                if self.visualize or self.kd_flag:
-                    # heterogeneous setting do not support disconet' kd
-                    projected_lidar_stack.append(selected_cav_processed["projected_lidar"])
-                    if (sensor_type == "lidar" or "lidar" in sensor_type) and self.kd_flag:
-                        eval(f"input_list_{modality_name}_proj").append(
-                            selected_cav_processed[f"processed_features_{modality_name}_proj"]
-                        )
-
-                if self.supervise_single and self.heterogeneous:
-                    single_label_list.append(selected_cav_processed["single_label_dict"])
-                    single_object_bbx_center_list.append(selected_cav_processed["single_object_bbx_center"])
-                    single_object_bbx_mask_list.append(selected_cav_processed["single_object_bbx_mask"])
-
-            # generate single view GT label
-            if self.supervise_single and self.heterogeneous:
-                single_label_dicts = self.post_processor.collate_batch_stamp(single_label_list)
-                single_object_bbx_center = torch.from_numpy(np.array(single_object_bbx_center_list))
-                single_object_bbx_mask = torch.from_numpy(np.array(single_object_bbx_mask_list))
-                processed_data_dict["ego"].update(
-                    {
-                        "single_label_dict_torch": single_label_dicts,
-                        "single_object_bbx_center_torch": single_object_bbx_center,
-                        "single_object_bbx_mask_torch": single_object_bbx_mask,
-                    }
-                )
-
-            # exculude all repetitve objects, DAIR-V2X
-            if self.params["fusion"]["dataset"] == "dairv2x":
-                if len(object_stack) == 1:
-                    object_stack = object_stack[0]
-                else:
-                    ego_boxes_np = object_stack[0]
-                    cav_boxes_np = object_stack[1]
-                    order = self.params["postprocess"]["order"]
-                    ego_corners_np = box_utils.boxes_to_corners_3d(ego_boxes_np, order)
-                    cav_corners_np = box_utils.boxes_to_corners_3d(cav_boxes_np, order)
-                    ego_polygon_list = list(convert_format(ego_corners_np))
-                    cav_polygon_list = list(convert_format(cav_corners_np))
-                    iou_thresh = 0.05
-
-                    gt_boxes_from_cav = []
-                    for i in range(len(cav_polygon_list)):
-                        cav_polygon = cav_polygon_list[i]
-                        ious = compute_iou(cav_polygon, ego_polygon_list)
-                        if (ious > iou_thresh).any():
-                            continue
-                        gt_boxes_from_cav.append(cav_boxes_np[i])
-
-                    if len(gt_boxes_from_cav):
-                        object_stack_from_cav = np.stack(gt_boxes_from_cav)
-                        object_stack = np.vstack([ego_boxes_np, object_stack_from_cav])
-                    else:
-                        object_stack = ego_boxes_np
-
-                unique_indices = np.arange(object_stack.shape[0])
-                object_id_stack = np.arange(object_stack.shape[0])
-            else:
-                # exclude all repetitive objects, OPV2V-H
-                unique_indices = [object_id_stack.index(x) for x in set(object_id_stack)]
-                object_stack = np.vstack(object_stack)
-                object_stack = object_stack[unique_indices]
-
-            # make sure bounding boxes across all frames have the same number
-            object_bbx_center = np.zeros((self.post_process_params["max_num"], 7))
-            mask = np.zeros(self.post_process_params["max_num"])
-            object_bbx_center[: object_stack.shape[0], :] = object_stack
-            mask[: object_stack.shape[0]] = 1
-
-            for modality_name in self.modality_name_list:
-
-                if eval(f"label_dict_list_{modality_name}"):
-                    label_dict_modality = eval(f"label_dict_list_{modality_name}")
-                    label_dict = {
-                        key: torch.cat([torch.tensor(batch_dict[key]) for batch_dict in label_dict_modality], 0)
-                        for key in label_dict_modality[0]
-                    }
-
-                    processed_data_dict["ego"].update({f"label_dict_{modality_name}": label_dict})
-
-                # if eval(f"label_dict_list_{modality_name}"):
-                #     # label_dict = self.post_processor.collate_batch(eval(f"label_dict_list_{modality_name}"))
-                #     processed_data_dict["ego"].update({f"label_dict_{modality_name}" : eval(f"label_dict_list_{modality_name}")[0]})
-
-            for modality_name in self.modality_name_list + ["m0"]:
-
-                if self.sensor_type_dict[modality_name] == "lidar":
-                    merged_feature_dict = merge_features_to_dict(eval(f"input_list_{modality_name}"))
-                    processed_data_dict["ego"].update({f"input_{modality_name}": merged_feature_dict})  # maybe None
-                elif self.sensor_type_dict[modality_name] == "camera":
-                    merged_image_inputs_dict = merge_features_to_dict(
-                        eval(f"input_list_{modality_name}"), merge="stack"
-                    )
-                    processed_data_dict["ego"].update(
-                        {f"input_{modality_name}": merged_image_inputs_dict}
-                    )  # maybe None
-                elif (
-                    "camera" in self.sensor_type_dict[modality_name] and "lidar" in self.sensor_type_dict[modality_name]
-                ):
-                    merged_feature_dict = merge_features_to_dict(eval(f"input_list_{modality_name}")["lidar"])
-                    merged_image_inputs_dict = merge_features_to_dict(
-                        eval(f"input_list_{modality_name}")["camera"], merge="stack"
-                    )
-                    if not merged_feature_dict or not merged_image_inputs_dict:
-                        processed_data_dict["ego"].update({f"input_{modality_name}": None})
-                    else:
-                        processed_data_dict["ego"].update(
-                            {
-                                f"input_{modality_name}": {
-                                    "lidar": merged_feature_dict,
-                                    "camera": merged_image_inputs_dict,
-                                }
-                            }
-                        )
-                else:
-                    raise ValueError("Not support this type of sensor")
-
-            if self.kd_flag:
-                # heterogenous setting do not support DiscoNet's kd
-                # stack_lidar_np = np.vstack(projected_lidar_stack)
-                # stack_lidar_np = mask_points_by_range(stack_lidar_np,
-                #                             self.params['preprocess'][
-                #                                 'cav_lidar_range'])
-                # stack_feature_processed = self.pre_processor.preprocess(stack_lidar_np)
-                for modality_name in self.modality_name_list:
-                    processed_data_dict["ego"].update(
-                        {
-                            f"input_{modality_name}_proj": merge_features_to_dict(
-                                eval(f"input_list_{modality_name}_proj")
-                            )  # maybe None
-                        }
-                    )
-
-            processed_data_dict["ego"].update({"agent_modality_list": agent_modality_list})
-
-            if self.visible:
-                dynamic_bev = ego_cav_base.get("bev_visibility_corp.png", None)
-            else:
-                dynamic_bev = ego_cav_base.get("bev_dynamic.png", None)
-            road_bev = ego_cav_base.get("bev_static.png", None)
-            lane_bev = ego_cav_base.get("bev_lane.png", None)
-
-            # generate targets label
-            label_dict = self.post_processor.generate_label(
-                gt_box_center=object_bbx_center,
-                anchors=self.anchor_box,
-                mask=mask,
-                dynamic_bev=dynamic_bev,
-                road_bev=road_bev,
-                lane_bev=lane_bev,
-            )
-
-            label_dict_protocol = self.post_processor_protocol.generate_label(
-                gt_box_center=object_bbx_center,
-                anchors=self.anchor_box_protocol,
-                mask=mask,
-                dynamic_bev=dynamic_bev,
-                road_bev=road_bev,
-                lane_bev=lane_bev,
-            )
-
-            processed_data_dict["ego"].update(
-                {
-                    "object_bbx_center": object_bbx_center,
-                    "object_bbx_mask": mask,
-                    "object_ids": [object_id_stack[i] for i in unique_indices],
-                    "anchor_box": self.anchor_box,
-                    # Here we include anchor_box of other modality and for the protocol modality. This information
-                    # should go to each cav data, but it takes a lot of efforts to make this dataset support all
-                    # supervision on all cavs. We will leave it to the future work.
-                    "anchor_box_dict": self.anchor_box_dict,
-                    "label_dict": label_dict,
-                    "label_dict_protocol": label_dict_protocol,
-                    "cav_num": cav_num,
-                    "pairwise_t_matrix": pairwise_t_matrix,
-                    "lidar_poses_clean": lidar_poses_clean,
-                    "lidar_poses": lidar_poses,
-                    "transformation_matrix": torch.from_numpy(np.stack(transformation_matrix_list)),
-                    "transformation_matrix_clean": torch.from_numpy(np.stack(transformation_matrix_clean_list)),
-                }
-            )
-
-            if self.visualize:
-                processed_data_dict["ego"].update({"origin_lidar": np.vstack(projected_lidar_stack)})
-                processed_data_dict["ego"].update(
-                    {
-                        "origin_lidar_modality": np.concatenate(
-                            [
-                                np.ones(len(projected_lidar_stack[i])) * int(agent_modality_list[i][1:])
-                                for i in range(len(projected_lidar_stack))
-                            ]
-                        )
-                    }
-                )
-
-            processed_data_dict["ego"].update({"sample_idx": idx, "cav_id_list": cav_id_list})
-
-            return processed_data_dict
 
         def collate_batch_train(self, batch):
             # Intermediate fusion is different the other two
