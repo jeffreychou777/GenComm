@@ -1,43 +1,31 @@
 # GenComm (**Gen**erative **Comm**unication mechanism)
-Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism
+### [NeurIPS 2025] Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism
+[Junfei Zhou](https://github.com/jeffreychou777), [Penglin Dai](https://itsgroups.github.io/)✉, [Quanmin Wei](https://github.com/fengxueguiren), Bingyi Liu,Xiao Wu, Jianping Wang
 
-This repo is also a **unified** and **integrated** multi-agent collaborative perception framework for **LiDAR-based**, **camera-based** and **heterogeneous** setting! 
-> 这个仓库同时是一个**统一**且**高集成**的多智能体协作感知框架，适用于 **纯LiDAR**、**纯Camera**和**异构** 实验设置。
 
-Through powerful code integration, you can access **4 datasets**, **the latest collaborative perception methods**, and **multiple modality** here. This is the most complete collaboration perception framework available.
+[Homepage]() | [ArXiv]() | [Zhihu]()
 
->通过代码集成，您可以在本仓库使用**4个数据集**、**最新协同感知方法**、**多模态数据**。
 
-[OpenReview](https://openreview.net/forum?id=KkrDUGIASk) | [ArXiv](https://arxiv.org/abs/2401.13964) | [Zhihu](https://zhuanlan.zhihu.com/p/682084451)
 
-![HEAL Teaser](images/teaser5.jpg)
+This repository provides a unified and integrated multi-agent collaborative perception framework, extended from [**HELA**]() to support heterogeneous settings across sensors, modalities, and models.
+Building on [**HELA**](), we add support for additional features, datasets, and multiple heterogeneous collaboration methods.
+Explore this repository to discover the ultimate experience of heterogeneous collaboration.🌟
 
-## Repo Feature
 
-- Modality Support
-  - [x] LiDAR
-  - [x] Camera
-  - [x] LiDAR + Camera
+![GenComm Teaser](images/intro.png)
 
-- Heterogeneity Support
-  - [x] **Sensor Data Heterogeneity**: We have multiple LiDAR data (16/32/64-line) and camera data (w./w.o. depth sensor) in the same scene.
-  - [x] **Modality Heterogeneity**: You can assign different sensor modality to agents in the way you like!
-  - [x] **Model Heterogeneity**: You can assign different model encoders (together with modality) to agents in the way you like!
+## Repo Features
 
-- Dataset Support
-  - [x] OPV2V
-  - [x] V2XSet
-  - [x] V2X-Sim 2.0
-  - [x] DAIR-V2X-C
+### Inherit from [HEAL](https://github.com/yifanlu0227/HEAL)
+- Modality Support: LiDAR/Camera/LiDAR + Camera
 
-- Detector Support
-  - [x] PointPillars (LiDAR)
-  - [x] SECOND (LiDAR)
-  - [x] Pixor (LiDAR)
-  - [x] VoxelNet (LiDAR)
-  - [x] Lift-Splat-Shoot (Camera)
+- Heterogeneity Support: Sensor/Modality/Model
 
-- multiple collaborative perception methods
+- Dataset Support: OPV2V/V2XSet/V2X-Sim 2.0/DAIR-V2X-C
+
+- Detector Support: PointPillars/SECOND/Pixor/VoxelNet/Lift-Splat-Shoot
+
+- Multiple collaborative perception methods
   - [x] [Attentive Fusion [ICRA2022]](https://arxiv.org/abs/2109.07644)
   - [x] [Cooper [ICDCS]](https://arxiv.org/abs/1905.05265)
   - [x] [F-Cooper [SEC2019]](https://arxiv.org/abs/1909.06459)
@@ -47,6 +35,26 @@ Through powerful code integration, you can access **4 datasets**, **the latest c
   - [x] [CoAlign [ICRA2023]](https://arxiv.org/abs/2211.07214)
   - [x] [HEAL [ICLR2024]](https://openreview.net/forum?id=KkrDUGIASk)
 
+- Robustness Setiing
+  - [x] Pose error
+
+### What's more: 🌟
+
+- Multiple heterogeneous collaboration methods
+  - [x] [MPDA [ICRA 2023]]()
+  - [x] [BackAlign [ICLR 2024]]()
+  - [x] [CodeFilling [CVPR 2025]]()
+  - [x] [STAMP [ICLR 2025]]()
+  - [x] [GenComm [NeurIPS 2025]]()
+
+- Additional Dataset Support
+  - [x] [V2X-Real(Real-World dataset with 4 agent, 2CAV & 2RSU) [ECCV 2024]]()
+
+- Robustness Settings
+  - [x] Communication delay
+  - [x] Communication degradation
+  - [x] LiDAR Simulation under snow and foggy weather
+
 ## Data Preparation
 - OPV2V: Please refer to [this repo](https://github.com/DerrickXuNu/OpenCOOD). You also need to download `additional-001.zip` which stores data for camera modality.
 - OPV2V-H: We store our data in [Huggingface Hub](https://huggingface.co/datasets/yifanlu/OPV2V-H). Please refer to [Downloading datasets](https://huggingface.co/docs/hub/datasets-downloading) tutorial for the usage.
@@ -54,11 +62,11 @@ Through powerful code integration, you can access **4 datasets**, **the latest c
 - V2X-Sim 2.0: Download the data from [this page](https://ai4ce.github.io/V2X-Sim/). Also download pickle files from [google drive](https://drive.google.com/drive/folders/16_KkyjV9gVFxvj2YDCzQm1s9bVTwI0Fw?usp=sharing).
 - DAIR-V2X-C: Download the data from [this page](https://thudair.baai.ac.cn/index). We use complemented annotation, so please also follow the instruction of [this page](https://siheng-chen.github.io/dataset/dair-v2x-c-complemented/). 
 
-Note that you can select your interested dataset to download. **OPV2V** and **DAIR-V2X-C** are heavily used in this repo, so it is recommended that you download and try them first. 
+Note that you can select your interested dataset to download. **OPV2V**, **OPV2V**, **DAIR-V2X-C** and **V2X-Real** are used in our experiments, so it is recommended that you download and try them first. 
 
-Create a `dataset` folder under `HEAL` and put your data there. Make the naming and structure consistent with the following:
+Create a `dataset` folder under `GenComm` and put your data there. Make the naming and structure consistent with the following:
 ```
-HEAL/dataset
+GenComm/dataset
 
 . 
 ├── my_dair_v2x 
@@ -91,58 +99,32 @@ HEAL/dataset
 
 
 ## Installation
-### Step 1: Basic Installation
 ```bash
-conda create -n heal python=3.8
-conda activate heal
+# create env
+conda create -n gencomm python=3.8
+conda activate gencomm
 # install pytorch. 
-conda create -n coalign python=3.8 pytorch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0 cudatoolkit=11.6 -c pytorch -c conda-forge
+conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.6 -c pytorch -c conda-forge
 # install dependency
-pip install -r requirements.txt
+pip install -r requirements.txt # -i https://pypi.tuna.tsinghua.edu.cn/simple use this mirror if needed
+
 # install this project. It's OK if EasyInstallDeprecationWarning shows up.
 python setup.py develop
-```
 
-
-### Step 2: Install Spconv (1.2.1 or 2.x)
-We use spconv 1.2.1 or spconv 2.x to generate voxel features. spconv 2.x has much convenient installation, but our checkpoints are stored in spconv 1.2.1 and they are not compatible.
-
-To install **spconv 2.x**, check the [table](https://github.com/traveller59/spconv#spconv-spatially-sparse-convolution-library) to run the installation command. For example we have cudatoolkit 11.6, then we should run
-```bash
 pip install spconv-cu116 # match your cudatoolkit version
-```
-
-To install **spconv 1.2.1**, please follow the guide in https://github.com/traveller59/spconv/tree/v1.2.1.
-You can also get a detailed installation guide in [CoAlign Installation Doc](https://udtkdfu8mk.feishu.cn/docx/LlMpdu3pNoCS94xxhjMcOWIynie#doxcn5rISC6NcfXIUnWFnXhTEzd).
-
-
-### Step 3: Bbx IoU cuda version compile
-Install bbx nms calculation cuda version
-  
-```bash
 python opencood/utils/setup.py build_ext --inplace
-```
 
-### Step 4: Dependencies for FPV-RCNN (optional)
-Install the dependencies for fpv-rcnn.
-  
-```bash
-cd HEAL
+# OPTINAL, in this repo, you can skip following command
 python opencood/pcdet_utils/setup.py build_ext --inplace
 ```
 
-
----
-To align with our agent-type assignment in our experiments, please make a copy of the assignment file under the logs folder
-```bash
-# in HEAL directory
-mkdir opencood/logs
-cp -r opencood/modality_assign opencood/logs/heter_modality_assign
-```
-
+> **Note:** By default, this repo uses **spconv 2.x**.  
+> If you want to reproduce the checkpoints from the [HEAL]() repo, you may encounter some bugs, especially when the LiDAR encoder is **SECOND**.  
+> In that case, please refer to the [HEAL]() repo to install **spconv 1.2.1**.
+ 
 
 ## Basic Train / Test Command
-These training and testing instructions apply to all end-to-end training methods. Note that HEAL requires that a collaborative base be constructed before aligning other agent types, see the next section for training for HEAL. If you want to train a collaborative perception model based on the Pyramid Fusion, the following approach still applies.
+We follow the style of basic training and tesitng command of OpenCOOD and HEAL. These training and testing instructions apply to all end-to-end training methods. 
 
 ### Train the model
 We uses yaml file to configure all the parameters for training. To train your own model
@@ -174,7 +156,7 @@ python opencood/tools/inference.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_me
   - **early**: early fusion detection from all agents, all agents' fused gt box. *[only for early fusion dataset]*
   - **intermediate**: intermediate fusion detection from all agents, all agents' fused gt box. *[only for intermediate fusion dataset]*
 
-## New Style Yaml and Old Style Yaml
+## Yaml Style & Yaml Zoo
 
 We introduced identifiers such as `m1`, `m2`, ... to indicate the modalities and models that an agent will use.  
 
@@ -193,10 +175,10 @@ In `${METHOD}.yaml`, there is also a concept of `mapping_dict`. It maps the give
 Just note that `mapping_dict` will not take effect during the training process to introduce more data augmentation. Each agent will be randomly assigned an agent type that exists in the yaml.
 
 
-## HEAL's Train Command
-<div align="center">
+## Training of Baselines
+<!-- <div align="center">
 <img src="images/heal_main.jpg" width="80%" >
-</div>
+</div> -->
 
 HEAL will first train a collaboration base and then align new agent type to this base. Follows our paper, we select LiDAR w/ PointPillars as our collaboration base.
 ### Step 1: Train the Collaboration Base
@@ -259,11 +241,13 @@ python opencood/tools/inference_heter_in_order.py --model_dir opencood/logs/HEAL
 ```
 This will overwrite many parameters in `config.yaml`, including `mapping_dict`, `comm_range`, and gradually adding m1, m2, m3, m4 agent into the scene. Ground-truth will always be `max_cav`'s fused gt boxes.
 
+## Training of GenComm
+
 ## Real-World Practice Rationale
 Take the DAIR-V2X dataset as an example, which consists of one vehicle and one Road-side Unit(RSU). We first trained the Pyramid Fusion using the vehicle and the RSU’s data as the collaboration base. Subsequently, we distributed the vehicle’s raw data and the Pyramid Fusion’s weights to various companies, allowing them to train their respective models locally.
-<div align="center">
+<!-- <div align="center">
 <img src="images/real-world.jpg" width="50%" >
-</div>
+</div> -->
 
 ## Benchmark Checkpoints
 We store our checkpoints files in [HEAL's Huggingface Hub](https://huggingface.co/yifanlu/HEAL/tree/main).
@@ -274,11 +258,10 @@ If you want to compare with HEAL's model and you use spconv 1.2.1, you can still
 
 ## Citation
 ```
-@inproceedings{
-lu2024an,
-title={An Extensible Framework for Open Heterogeneous Collaborative Perception},
-author={Lu, Yifan and Hu, Yue and Zhong, Yiqi and Wang, Dequan and Chen, Siheng and Wang, Yanfeng},
-booktitle={The Twelfth International Conference on Learning Representations},
-year={2024},
-}
+Coming soon
 ```
+
+## Acknowledge
+This repo is built on these fantastic repos: [OpenCOOD](https://github.com/DerrickXuNu/OpenCOOD), [HEAL](https://github.com/yifanlu0227/HEAL), and [V2X-R](https://github.com/ylwhxht/V2X-R).
+Thanks for your great contribution for this community.[@yifanlu0227](https://github.com/yifanlu0227), [@DerrickXuNu](https://github.com/DerrickXuNu) and [@ylwhxht](https://github.com/ylwhxht)
+
