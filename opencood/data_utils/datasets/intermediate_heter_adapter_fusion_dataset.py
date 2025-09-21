@@ -138,6 +138,9 @@ def getIntermediateheteradapterFusionDataset(cls):
             mapping_dict = params["heter"]["mapping_dict"]
             cav_preference = params["heter"].get("cav_preference", None)
 
+            if self.params['fusion']['dataset'] == 'dairv2x':
+                self.modality_assignment = None
+                
             self.adaptor = Adaptor(
                 self.ego_modality,
                 self.modality_name_list,
@@ -405,7 +408,8 @@ def getIntermediateheteradapterFusionDataset(cls):
                 else:
                     ego_boxes_np = object_stack[0]
                     cav_boxes_np = object_stack[1]
-                    order = self.params["postprocess"]["order"]
+                    # order = self.params["postprocess"]["order"]
+                    order = 'hwl' # hwl for DAIR-V2X
                     ego_corners_np = box_utils.boxes_to_corners_3d(ego_boxes_np, order)
                     cav_corners_np = box_utils.boxes_to_corners_3d(cav_boxes_np, order)
                     ego_polygon_list = list(convert_format(ego_corners_np))
@@ -435,7 +439,11 @@ def getIntermediateheteradapterFusionDataset(cls):
                 object_stack = object_stack[unique_indices]
 
             # make sure bounding boxes across all frames have the same number
-            object_bbx_center = np.zeros((self.post_process_params["max_num"], 7))
+            if self.params['fusion']['dataset'] == 'v2xreal':
+                object_bbx_center = \
+                    np.zeros((self.post_process_params["max_num"], 8))
+            else:
+                object_bbx_center = np.zeros((self.post_process_params["max_num"], 7))
             mask = np.zeros(self.post_process_params["max_num"])
             object_bbx_center[: object_stack.shape[0], :] = object_stack
             mask[: object_stack.shape[0]] = 1

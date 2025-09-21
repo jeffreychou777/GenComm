@@ -33,9 +33,9 @@ pose_error_performance_50 = {
 }
 
 color = {
-    'GenComm': '#C05046',
-    'CodeFilling': '#EFC085',
-    'STAMP': '#4BACC6',  
+    'GenComm': '#E54C5E',
+    'CodeFilling': '#EE822F',
+    'STAMP': '#4874CB',  
 }
 
 fig, ax = plt.subplots(figsize=(3.7, 4))

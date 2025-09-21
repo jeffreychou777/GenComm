@@ -20,6 +20,7 @@ from opencood.utils.transformation_utils import x1_to_x2
 from opencood.data_utils.pre_processor import build_preprocessor
 from opencood.data_utils.post_processor import build_postprocessor
 from opencood.data_utils import SUPER_CLASS_MAP
+from opencood.utils.common_utils import read_json
 
 
 class V2XREALBaseDataset(Dataset):
@@ -27,6 +28,7 @@ class V2XREALBaseDataset(Dataset):
         self.params = params
         self.visualize = visualize
         self.train = train
+        self.stamp_flag = True if 'stamp' in params['fusion'] and params['fusion']['stamp'] else False
         self.class_names = SUPER_CLASS_MAP.keys()
         self.build_inverse_super_class_map()
         self.build_class_name2int_map()
@@ -35,8 +37,11 @@ class V2XREALBaseDataset(Dataset):
         assert self.dataset_mode in ['vc', 'ic', 'v2v', 'i2i']
         self.use_hdf5 = False
 
-        self.pre_processor = build_preprocessor(params["preprocess"], train)
-        self.post_processor = build_postprocessor(params["postprocess"], train, self.class_names)
+        if params.get('preprocess', None): 
+            self.pre_processor = build_preprocessor(params["preprocess"], train)
+        if params.get('postprocess', None):
+            self.post_processor = build_postprocessor(params["postprocess"], self.class_names, train)
+        
         if 'data_augment' in params: # late and early
             self.data_augmentor = DataAugmentor(params['data_augment'], train)
         else: # intermediate
@@ -83,7 +88,14 @@ class V2XREALBaseDataset(Dataset):
         if "noise_setting" not in self.params:
             self.params['noise_setting'] = OrderedDict()
             self.params['noise_setting']['add_noise'] = False
-
+        # self.modality_assignment initialized in basedataset only in STAMP case,
+        # otherwise initialized in intermediate_fusion_dataset class
+        if self.stamp_flag:
+            self.modality_assignment = (
+            None
+            if ("assignment_path" not in params["heter"] or params["heter"]["assignment_path"] is None)
+            else read_json(params["heter"]["assignment_path"])
+        )
         # first load all paths of different scenarios
         scenario_folders = sorted([os.path.join(root_dir, x)
                                    for x in os.listdir(root_dir) if
@@ -556,7 +568,9 @@ class V2XREALBaseDataset(Dataset):
 
     def generate_object_center_lidar(self,
                                cav_contents,
-                               reference_lidar_pose):
+                               reference_lidar_pose,
+                               modality_name=None,
+                               mask_outside_range=True):
         """
         Retrieve all objects in a format of (n, 7), where 7 represents
         x, y, z, l, w, h, yaw or x, y, z, h, w, l, yaw.
@@ -582,12 +596,25 @@ class V2XREALBaseDataset(Dataset):
         object_ids : list
             Length is number of bbx in current sample.
         """
-        return self.post_processor.generate_object_center_v2xreal(cav_contents,
+        if self.stamp_flag:
+            if modality_name is not None:
+                return self.post_processor[modality_name].generate_object_center_v2xreal_stamp(cav_contents,
+                                                            reference_lidar_pose,
+                                                            mask_outside_range=mask_outside_range)
+            else:
+                return self.post_processor.generate_object_center_v2xreal_stamp(cav_contents,
+                                                            reference_lidar_pose,
+                                                            mask_outside_range=mask_outside_range)
+        else:
+
+            return self.post_processor.generate_object_center_v2xreal(cav_contents,
                                                         reference_lidar_pose)
 
     def generate_object_center_camera(self, 
                                 cav_contents, 
-                                reference_lidar_pose):
+                                reference_lidar_pose,
+                                modality_name=None,
+                                mask_outside_range=True):
         """
         Retrieve all objects in a format of (n, 7), where 7 represents
         x, y, z, l, w, h, yaw or x, y, z, h, w, l, yaw.
@@ -616,9 +643,19 @@ class V2XREALBaseDataset(Dataset):
         object_ids : list
             Length is number of bbx in current sample.
         """
-        return self.post_processor.generate_visible_object_center(
-            cav_contents, reference_lidar_pose
-        )
+        if self.stamp_flag:
+            if modality_name is not None:
+                return self.post_processor[modality_name].generate_visible_object_center_v2xreal_stamp(
+                    cav_contents, reference_lidar_pose, mask_outside_range=mask_outside_range
+                )
+            else:
+                return self.post_processor.generate_visible_object_center_v2xreal_stamp(
+                    cav_contents, reference_lidar_pose, mask_outside_range=mask_outside_range
+                )
+        else:
+            return self.post_processor.generate_visible_object_center_v2xreal(
+                cav_contents, reference_lidar_pose
+            )
 
     def get_ext_int(self, params, camera_id):
         camera_coords = np.array(params["camera%d" % camera_id]["cords"]).astype(

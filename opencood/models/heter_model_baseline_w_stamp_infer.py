@@ -33,7 +33,7 @@ class HeterModelBaselineWStampInfer(nn.Module):
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
-
+        self.num_class = args['num_class'] if "num_class" in args else 1
         self.ego_modality = args['ego_modality']
 
         self.cav_range = args['lidar_range']
@@ -67,7 +67,8 @@ class HeterModelBaselineWStampInfer(nn.Module):
             """
             Backbone building 
             """
-            setattr(self, f"backbone_{modality_name}", BaseBEVBackbone(model_setting['backbone_args'], 
+            setattr(self, f"backbone_{modality_name}", nn.Identity() if model_setting['backbone_args'] == 'identity' else 
+                    BaseBEVBackbone(model_setting['backbone_args'], 
                                                                        model_setting['backbone_args'].get('inplanes',64)))
 
             """
@@ -138,12 +139,13 @@ class HeterModelBaselineWStampInfer(nn.Module):
         """
         Shared Heads
         """
-        setattr(self, f"cls_head_{self.ego_modality}", nn.Conv2d(args['in_head'], args['anchor_number'],
-                                                                   kernel_size=1))
-        setattr(self, f"reg_head_{self.ego_modality}", nn.Conv2d(args['in_head'], 7 * args['anchor_number'],
-                                                                     kernel_size=1))
+        setattr(self, f"cls_head_{self.ego_modality}", nn.Conv2d(args['in_head'], args['anchor_number'] * self.num_class * self.num_class,
+                                  kernel_size=1))
+        setattr(self, f"reg_head_{self.ego_modality}", nn.Conv2d(args['in_head'], 7 * args['anchor_number'] * self.num_class,
+                                  kernel_size=1))
         setattr(self, f"dir_head_{self.ego_modality}", nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
-                                                                        kernel_size=1))
+                                  kernel_size=1)) # BIN_NUM = 2
+        
         self.fix_modules.append(f"cls_head_{self.ego_modality}")
         self.fix_modules.append(f"reg_head_{self.ego_modality}")
         self.fix_modules.append(f"dir_head_{self.ego_modality}")
@@ -165,7 +167,7 @@ class HeterModelBaselineWStampInfer(nn.Module):
 
 
         # check again which module is not fixed.
-        self.model_train_init_stamp()
+        # self.model_train_init_stamp()
         check_trainable_module(self)
 
     def model_train_init(self):
@@ -200,7 +202,8 @@ class HeterModelBaselineWStampInfer(nn.Module):
             if modality_name not in modality_count_dict:
                 continue
             feature = eval(f"self.encoder_{modality_name}")(data_dict, modality_name)
-            feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
+            if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
+                feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
             feature = eval(f"self.shrinker_{modality_name}")(feature)
             if modality_name != self.ego_modality: #ego modality need not to be transformed
                 feature = eval(f"self.adapter_{modality_name}")(feature)   # cav -> protocol

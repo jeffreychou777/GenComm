@@ -363,15 +363,16 @@ class HeterModelBaselineWStamp(nn.Module):
         This function sets up the backbone network if the necessary backbone arguments are provided.
         """
 
-        self.backbone_flag = False
-        if model_setting.get("backbone_args", None):
-            self.backbone_flag = True
+        setattr(self, f"backbone_flag_{modality_name}", False)
+        if model_setting.get("backbone_args", None) and model_setting["backbone_args"] != 'identity':
+            setattr(self, f"backbone_flag_{modality_name}", True)
             setattr(
                 self,
                 f"backbone_{modality_name}",
                 BaseBEVBackbone(model_setting["backbone_args"],
                                 model_setting['backbone_args'].get('inplanes',64)),
             )
+
     def build_shrinker(self, modality_name, model_setting):
         """
         Builds the shrinker for a given modality.
@@ -747,7 +748,7 @@ class HeterModelBaselineWStamp(nn.Module):
         - feature (Tensor): Backbone features.
         """
 
-        if self.backbone_flag:
+        if eval(f"self.backbone_flag_{modality_name}"):
             feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})["spatial_features_2d"]
         return feature
 

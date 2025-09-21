@@ -251,8 +251,14 @@ def add_suffix_to_keys_save(log_path, suffix, save_path):
 
     model_dict = torch.load(model_path, map_location='cpu')
     for key in list(model_dict.keys()):
-        if key.startswith('message_extractor.'):
-            new_key = key.replace('message_extractor.', f'message_extractor_{suffix}.')
+        if key.startswith('reg_head.'):
+            new_key = key.replace('reg_head.', f'reg_head_{suffix}.')
+            model_dict[new_key] = model_dict.pop(key)
+        if key.startswith('cls_head.'):
+            new_key = key.replace('cls_head.', f'cls_head_{suffix}.')
+            model_dict[new_key] = model_dict.pop(key)
+        if key.startswith('dir_head.'):
+            new_key = key.replace('dir_head.', f'dir_head_{suffix}.')
             model_dict[new_key] = model_dict.pop(key)
     torch.save(model_dict, os.path.join(save_path,'net_epoch1.pth'))
 
@@ -263,8 +269,8 @@ def change_modality_key_name(log_path,):
     model_path = get_model_path_from_dir(log_path)
     model_dict = torch.load(model_path, map_location='cpu')
     for key in list(model_dict.keys()):
-        if 'm1' in key:
-            new_key = key.replace('m1', 'm2')
+        if 'm3' in key:
+            new_key = key.replace('m3', 'm0')
             model_dict[new_key] = model_dict.pop(key)
             
     torch.save(model_dict, os.path.join(model_path))
@@ -299,26 +305,31 @@ if __name__ == "__main__":
     # merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
     
     
-    # add_suffix_to_keys_save(log_path = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_att_diffcomm_archive_2025_04_17_14_44_40',
-    #                         suffix = 'm1',
-    #                         save_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/diffcomm_align/m1m2_att')
+    add_suffix_to_keys_save(log_path = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m3_v2xvit_infer',
+                            suffix = 'm1',
+                            save_path='/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m3_v2xvit_infer')
     
-    # m1_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m1_2025_07_27_03_42_31'
-    # m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05'
-    # m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m3_2025_07_27_14_35_53'
-    # m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m4_2025_07_28_00_19_41'
-    
-    # dir_list = [m2_dir, m3_dir, m1_dir]
-    # output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/mpda/V2XReal_m1m2m3_att'
+    # m0_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m0_v2xvit_ckp'
+    # m1_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/m1_ckp'
+    # m2_dir = 'DATACENTER2/data/code/DiffComm/opencood/logs/m2_base_v2xvit_wo_diffcomm_2025_04_26_07_43_18'
+    # m3_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/m0m3_att'
+    # m4_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/m0m4_att'
+    # infer = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/infer'
+
+    # dir_list = [m0_dir, m1_dir] ## put ego_dir as the last
+    # output_model_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m0m2_v2xvit'
     # merge_and_save_final(dir_list, output_model_dir)
     
-    m1_m2_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m2_att'
-    m1_m3_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m3_att'
-    m1_m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m4_att'
-        
-    dir_list = [m1_m4_dir, m1_m3_dir, m1_m2_dir]
-    output_model_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m2m3m4_att_infer'
-    merge_and_save_final(dir_list, output_model_dir)
+    # m1_m2_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/dair/m0m1_att'
+    # m1_m3_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/dair/m0m3_att'
+    # m1_m4_dir = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m4_att'
+
+    # m1_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1_v2xvit_ckp'
+    # m0_m1_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m0m1_v2xvit'
+    # m0_m2_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m0m2_v2xvit'      
+    # dir_list = [m0_m1_dir, m0_m2_dir, m1_dir]
+    # output_model_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m2_v2xvit_infer'
+    # merge_and_save_final(dir_list, output_model_dir)
     
-    # change_modality_key_name(log_path = '/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m2_2025_07_26_09_04_05')
+    # change_modality_key_name(log_path = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m0_v2xvit_ckp')
     

@@ -30,9 +30,11 @@ class DAIRV2XBaseDataset(Dataset):
         self.visualize = visualize
         self.train = train
 
-        self.pre_processor = build_preprocessor(params["preprocess"], train)
-        self.post_processor = build_postprocessor(params["postprocess"], train)
-        self.post_processor.generate_gt_bbx = self.post_processor.generate_gt_bbx_by_iou
+        if params.get("preprocess", False):
+            self.pre_processor = build_preprocessor(params["preprocess"], train)
+        if params.get("postprocess", False):
+            self.post_processor = build_postprocessor(params["postprocess"], train)
+            self.post_processor.generate_gt_bbx = self.post_processor.generate_gt_bbx_by_iou
         if 'data_augment' in params: # late and early
             self.data_augmentor = DataAugmentor(params['data_augment'], train)
         else: # intermediate
@@ -242,8 +244,10 @@ class DAIRV2XBaseDataset(Dataset):
     ### Add for heterogeneous, transforming the single label from self coord. to ego coord.
     def generate_object_center_single_hetero(self,
                                             cav_contents,
-                                            reference_lidar_pose, 
-                                            modality):
+                                            reference_lidar_pose,
+                                            modality,
+                                            mask_outside_range=None, 
+                                            ):
         """
         loading the object from single agent. 
         

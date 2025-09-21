@@ -828,3 +828,57 @@ class BasePostprocessor(object):
             object_ids.append(object_id)
 
         return object_np, mask, object_ids
+
+    def generate_object_center_v2xreal_stamp(self,
+                               cav_contents,
+                               reference_lidar_pose,
+                               mask_outside_range=True):
+        """
+        Retrieve all objects in a format of (n, 8), where 8 represents
+        x, y, z, l, w, h, yaw, class or x, y, z, h, w, l, yaw, class.
+
+        Parameters
+        ----------
+        cav_contents : list
+            List of dictionary, save all cavs' information.
+
+        reference_lidar_pose : list
+            The final target lidar pose with length 6.
+
+        Returns
+        -------
+        object_np : np.ndarray
+            Shape is (max_num, 8).
+        mask : np.ndarray
+            Shape is (max_num,).
+        object_ids : list
+            Length is number of bbx in current sample.
+        """
+        from opencood.data_utils.datasets import GT_RANGE
+
+        tmp_object_dict = {}
+        for cav_content in cav_contents:
+            tmp_object_dict.update(cav_content['params']['vehicles'])
+
+        output_dict = {}
+        # during training using cav_lidar_range to set learning targets
+        # during inference using gt_range to set ground truth
+        filter_range = self.params['anchor_args']['cav_lidar_range'] \
+            if self.train else GT_RANGE
+        box_utils.project_world_objects_v2xreal_stamp(tmp_object_dict,
+                                        output_dict,
+                                        reference_lidar_pose,
+                                        filter_range,
+                                        self.params['order'],
+                                        mask_outside_range)
+
+        object_np = np.zeros((self.params['max_num'], 8))
+        mask = np.zeros(self.params['max_num'])
+        object_ids = []
+
+        for i, (object_id, object_bbx) in enumerate(output_dict.items()):
+            object_np[i] = object_bbx[0, :]
+            mask[i] = 1
+            object_ids.append(object_id)
+
+        return object_np, mask, object_ids

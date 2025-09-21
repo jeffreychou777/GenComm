@@ -2,6 +2,10 @@
 # Author: Yifan Lu <yifan_lu@sjtu.edu.cn>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
+# Modifications by Xiangbo Gao <xiangbogaobarry@gmail.com>
+# New License for modifications: MIT License
+
+
 import os
 from collections import OrderedDict
 import cv2
@@ -12,6 +16,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 import json
 import random
+import pickle
 import opencood.utils.pcd_utils as pcd_utils
 from opencood.data_utils.augmentor.data_augmentor import DataAugmentor
 from opencood.hypes_yaml.yaml_utils import load_yaml
@@ -21,24 +26,19 @@ from opencood.data_utils.pre_processor import build_preprocessor
 from opencood.data_utils.post_processor import build_postprocessor
 from opencood.utils.common_utils import read_json
 
-class OPV2VBaseDataset(Dataset):
+class OPV2V4STAMPBaseDataset(Dataset):
     def __init__(self, params, visualize, train=True):
         self.params = params
         self.visualize = visualize
         self.train = train
         self.use_hdf5 = True
-        self.stamp_flag = True if 'stamp' in params['fusion'] and params['fusion']['stamp'] else False
 
-        # if not self.stamp_flag:
-        #     self.pre_processor = build_preprocessor(params["preprocess"], train)
-        #     self.post_processor = build_postprocessor(params["postprocess"], train)
         if params.get('preprocess', None):
             self.pre_processor = build_preprocessor(params["preprocess"], train)
             
         if params.get('postprocess', None):
             self.post_processor = build_postprocessor(params["postprocess"], train)
             
-
         if 'data_augment' in params: # late and early
             self.data_augmentor = DataAugmentor(params['data_augment'], train)
         else: # intermediate
@@ -66,13 +66,7 @@ class OPV2VBaseDataset(Dataset):
         self.generate_object_center = self.generate_object_center_lidar if self.label_type == "lidar" \
                                             else self.generate_object_center_camera
         self.generate_object_center_single = self.generate_object_center # will it follows 'self.generate_object_center' when 'self.generate_object_center' change?
-        
-        if 'ego_diff_cav' in params and params['ego_diff_cav']:
-            self.ego_diff_cav = params['ego_diff_cav'] 
-        else:
-            self.ego_diff_cav = False
-        
-        
+
         if self.load_camera_file:
             self.data_aug_conf = params["fusion"]["args"]["data_aug_conf"]
 
@@ -85,77 +79,24 @@ class OPV2VBaseDataset(Dataset):
         if "noise_setting" not in self.params:
             self.params['noise_setting'] = OrderedDict()
             self.params['noise_setting']['add_noise'] = False
-        
-        # self.modality_assignment initialized in basedataset only in STAMP case,
-        # otherwise initialized in intermediate_fusion_dataset class
-        if self.stamp_flag:
-            self.modality_assignment = (
+            
+        self.modality_assignment = (
             None
             if ("assignment_path" not in params["heter"] or params["heter"]["assignment_path"] is None)
             else read_json(params["heter"]["assignment_path"])
         )
+        
         # first load all paths of different scenarios
         scenario_folders = sorted([os.path.join(root_dir, x)
                                    for x in os.listdir(root_dir) if
                                    os.path.isdir(os.path.join(root_dir, x))])
         
+        # filter out the scenarios that are not in the assignment
+        if self.modality_assignment is not None:
+            scenario_folders = [x for x in scenario_folders if x.split("/")[-1] in self.modality_assignment.keys()]
+        
         self.scenario_folders = scenario_folders
         self.reinitialize()
-        
-        #### noise_setting #### added by Junfei Zhou 25_5_13
-        if 'noise_setting' in self.params and \
-                self.params['noise_setting']['add_noise']:
-            noise_setting = self.params['noise_setting']
-
-            #async
-            if 'add_async_noise' in noise_setting:
-                self.async_flag = noise_setting['add_async_noise']
-                self.async_mode = noise_setting['async_args']['async_mode']
-                assert self.async_mode in ['real', 'sim']
-                self.async_overhead = noise_setting['async_args']['async_overhead']
-                self.async_method = noise_setting['async_args']['async_method']
-                self.backbone_delay = noise_setting['async_args']['backbone_delay']
-                self.data_size = noise_setting['async_args']['data_size']
-                self.transmission_speed = noise_setting['async_args']['transmission_speed']
-            else:
-                self.async_flag = False
-                self.async_mode = 'sim'
-                self.async_overhead = 0
-                self.backbone_delay = 0
-                self.data_size = 0
-                self.transmission_speed = 0
-            
-            #lossy comm
-            if 'add_lossy_comm_noise' in noise_setting:
-                self.lossy_comm_flag = noise_setting['add_lossy_comm_noise']
-                self.lossy_comm_args = noise_setting['lossy_comm_args']
-            else:
-                self.lossy_comm_flag = False
-            
-            # pose
-            if 'add_pose_noise' in noise_setting:
-                self.pose_noise_flag = noise_setting['add_pose_noise']
-            else:
-                self.pose_noise_flag = False
-            
-            # weather
-            if 'add_weather_noise' in noise_setting:
-                self.weather_noise_flag = noise_setting['add_weather_noise']
-                if self.weather_noise_flag:
-                    self.weather_type = noise_setting['weather_args']['type']
-            else:
-                self.weather_noise_flag = False
-        else:
-            self.async_flag = False
-            self.lossy_comm_flag = False
-            self.pose_noise_flag = False
-            self.weather_noise_flag = False
-            self.async_mode = 'sim'
-            self.async_overhead = 0
-            self.backbone_delay = 0
-            self.data_size = 0
-            self.transmission_speed = 0
-
 
     def reinitialize(self):
         # Structure: {scenario_id : {cav_1 : {timestamp1 : {yaml: path,
@@ -169,15 +110,17 @@ class OPV2VBaseDataset(Dataset):
 
             # at least 1 cav should show up
             if self.train:
-                cav_list = [x for x in os.listdir(scenario_folder)
-                            if os.path.isdir(
-                        os.path.join(scenario_folder, x))]
+                # cav_list = [x for x in os.listdir(scenario_folder)
+                #             if os.path.isdir(
+                #         os.path.join(scenario_folder, x))]
                 # cav_list = sorted(cav_list)
+                cav_list = list(self.modality_assignment[scenario_folder.split("/")[-1]].keys())
                 random.shuffle(cav_list)
             else:
-                cav_list = sorted([x for x in os.listdir(scenario_folder)
-                                   if os.path.isdir(
-                        os.path.join(scenario_folder, x))])
+                # cav_list = sorted([x for x in os.listdir(scenario_folder)
+                #                    if os.path.isdir(
+                #         os.path.join(scenario_folder, x))])
+                cav_list = list(self.modality_assignment[scenario_folder.split("/")[-1]].keys())
             assert len(cav_list) > 0
 
             """
@@ -194,6 +137,7 @@ class OPV2VBaseDataset(Dataset):
             if getattr(self, "heterogeneous", False):
                 scenario_name = scenario_folder.split("/")[-1]
                 cav_list = self.adaptor.reorder_cav_list(cav_list, scenario_name)
+                
 
 
             # loop over all CAV data
@@ -201,6 +145,15 @@ class OPV2VBaseDataset(Dataset):
                 if j > self.max_cav - 1:
                     print('too many cavs reinitialize')
                     break
+                
+                if getattr(self, "heterogeneous", False):
+                    """
+                    Here is the code for the case that only consider partial agents
+                    """
+
+                    if self.modality_assignment[scenario_name][cav_id] not in self.adaptor.mapping_dict.keys():
+                        continue
+                
                 self.scenario_database[i][cav_id] = OrderedDict()
 
                 # save all yaml files to the dictionary
@@ -217,6 +170,10 @@ class OPV2VBaseDataset(Dataset):
                 timestamps = self.extract_timestamps(yaml_files)
 
                 for timestamp in timestamps:
+                    
+
+                    
+                    
                     self.scenario_database[i][cav_id][timestamp] = \
                         OrderedDict()
                     yaml_file = os.path.join(cav_path,
@@ -240,13 +197,8 @@ class OPV2VBaseDataset(Dataset):
 
                     if getattr(self, "heterogeneous", False):
                         scenario_name = scenario_folder.split("/")[-1]
-                        if self.ego_diff_cav:
-                            cav_modality = self.adaptor.reassign_cav_modality_diffcav(self.modality_assignment[scenario_name][cav_id] , j)
-                        else:
-                            cav_modality = self.adaptor.reassign_cav_modality(self.modality_assignment[scenario_name][cav_id] , j)
-                        
-                        # if you need ego modality to be different from cav modality, use this
-                        
+                        cav_modality = self.adaptor.reassign_cav_modality(self.modality_assignment[scenario_name][cav_id] , j)
+
                         self.scenario_database[i][cav_id][timestamp]['modality_name'] = cav_modality
 
                         self.scenario_database[i][cav_id][timestamp]['lidar'] = \
@@ -312,50 +264,14 @@ class OPV2VBaseDataset(Dataset):
             data[cav_id] = OrderedDict()
             data[cav_id]['ego'] = cav_content['ego']
 
-            # # load param file: json is faster than yaml
-            # json_file = cav_content[timestamp_key]['yaml'].replace("yaml", "json")
-            # if os.path.exists(json_file):
-            #     with open(json_file, "r") as f:
-            #         data[cav_id]['params'] = json.load(f)
-            # else:
-            #     data[cav_id]['params'] = \
-            #         load_yaml(cav_content[timestamp_key]['yaml'])
-            
-                        ###################################################
-            ########## ADD TIME DELAY TIMESTAPE HERE ##########
-            ###################################################
-            
-            # calculate delay for this vehicle
-            timestamp_delay = self.time_delay_calculation(cav_content['ego'])
-
-            if timestamp_index - timestamp_delay <= 0:
-                timestamp_delay = timestamp_index
-            timestamp_index_delay = max(0, timestamp_index - timestamp_delay)
-            timestamp_key_delay = self.return_timestamp_key(scenario_database,
-                                                            timestamp_index_delay)
-            
-            # add time delay to vehicle parameters
-            data[cav_id]['time_delay'] = timestamp_delay
-            # load the corresponding data into the dictionary
-            data[cav_id]['params'] = self.reform_param(cav_content,
-                                                       timestamp_key,
-                                                       timestamp_key_delay,)
-        
             # load param file: json is faster than yaml
             json_file = cav_content[timestamp_key]['yaml'].replace("yaml", "json")
             if os.path.exists(json_file):
                 with open(json_file, "r") as f:
                     data[cav_id]['params'] = json.load(f)
             else:
-                # data[cav_id]['params'] = \
-                #     load_yaml(cav_content[timestamp_key]['yaml'])
-                data[cav_id]['params'] = self.reform_param(cav_content,
-                                                       timestamp_key,
-                                                       timestamp_key_delay,)
-                
-            ###################################################
-            ############# 2024.10.22 by Junfei Zhou ###########
-            ###################################################
+                data[cav_id]['params'] = \
+                    load_yaml(cav_content[timestamp_key]['yaml'])
 
             # load camera file: hdf5 is faster than png
             hdf5_file = cav_content[timestamp_key]['cameras'][0].replace("camera0.png", "imgs.hdf5")
@@ -381,7 +297,6 @@ class OPV2VBaseDataset(Dataset):
             if self.load_lidar_file or self.visualize:
                 data[cav_id]['lidar_np'] = \
                     pcd_utils.pcd_to_np(cav_content[timestamp_key]['lidar'])
-
             if getattr(self, "heterogeneous", False):
                 data[cav_id]['modality_name'] = cav_content[timestamp_key]['modality_name']
 
@@ -552,19 +467,14 @@ class OPV2VBaseDataset(Dataset):
         object_ids : list
             Length is number of bbx in current sample.
         """
-        if self.stamp_flag:
-            if modality_name is not None:
-                return self.post_processor[modality_name].generate_object_center_stamp(cav_contents,
-                                                            reference_lidar_pose,
-                                                            mask_outside_range=mask_outside_range)
-            else:
-                return self.post_processor.generate_object_center_stamp(cav_contents,
-                                                            reference_lidar_pose,
-                                                            mask_outside_range=mask_outside_range)
-
+        if modality_name is not None:
+            return self.post_processor[modality_name].generate_object_center_stamp(cav_contents,
+                                                        reference_lidar_pose,
+                                                        mask_outside_range=mask_outside_range)
         else:
-            return self.post_processor.generate_object_center(cav_contents,
-                                                        reference_lidar_pose)
+            return self.post_processor.generate_object_center_stamp(cav_contents,
+                                                        reference_lidar_pose,
+                                                        mask_outside_range=mask_outside_range)
 
     def generate_object_center_camera(self, 
                                 cav_contents, 
@@ -599,18 +509,13 @@ class OPV2VBaseDataset(Dataset):
         object_ids : list
             Length is number of bbx in current sample.
         """
-        if self.stamp_flag:
-            if modality_name is not None:
-                return self.post_processor[modality_name].generate_visible_object_center_stamp(
-                    cav_contents, reference_lidar_pose, mask_outside_range=mask_outside_range
-                )
-            else:
-                return self.post_processor.generate_visible_object_center_stamp(
-                    cav_contents, reference_lidar_pose, mask_outside_range=mask_outside_range
-                )
+        if modality_name is not None:
+            return self.post_processor[modality_name].generate_visible_object_center_stamp(
+                cav_contents, reference_lidar_pose, mask_outside_range=mask_outside_range
+            )
         else:
-            return self.post_processor.generate_visible_object_center(
-                cav_contents, reference_lidar_pose
+            return self.post_processor.generate_visible_object_center_stamp(
+                cav_contents, reference_lidar_pose, mask_outside_range=mask_outside_range
             )
 
     def get_ext_int(self, params, camera_id):
@@ -626,119 +531,3 @@ class OPV2VBaseDataset(Dataset):
             np.float32
         )
         return camera_to_lidar, camera_intrinsic
-    
-    def reform_param(self, cav_content, timestamp_cur,
-                     timestamp_delay):
-        
-        ## Delete bianliang: ego_content and cur_ego_pose_flag
-        
-        """
-        Reform the data params with current timestamp object groundtruth and
-        delay timestamp LiDAR pose for other CAVs.
-
-        Parameters
-        ----------
-        cav_content : dict
-            Dictionary that contains all file paths in the current cav/rsu.
-
-        ego_content : dict
-            Ego vehicle content.
-
-        timestamp_cur : str
-            The current timestamp.
-
-        timestamp_delay : str
-            The delayed timestamp.
-
-        cur_ego_pose_flag : bool
-            Whether use current ego pose to calculate transformation matrix.
-
-        Return
-        ------
-        The merged parameters.
-        """
-        cur_params = load_yaml(cav_content[timestamp_cur]['yaml'])
-        delay_params = load_yaml(cav_content[timestamp_delay]['yaml'])
-
-        # cur_ego_params = load_yaml(ego_content[timestamp_cur]['yaml'])
-        # delay_ego_params = load_yaml(ego_content[timestamp_delay]['yaml'])
-
-        # we need to calculate the transformation matrix from cav to ego
-        # at the delayed timestamp
-        # delay_cav_lidar_pose = delay_params['lidar_pose']
-        # delay_ego_lidar_pose = delay_ego_params["lidar_pose"]
-
-        # cur_ego_lidar_pose = cur_ego_params['lidar_pose']
-        # cur_cav_lidar_pose = cur_params['lidar_pose']
-
-        # if not cav_content['ego'] and self.loc_err_flag:
-        #     delay_cav_lidar_pose = self.add_loc_noise(delay_cav_lidar_pose,
-        #                                               self.xyz_noise_std,
-        #                                               self.ryp_noise_std)
-        #     cur_cav_lidar_pose = self.add_loc_noise(cur_cav_lidar_pose,
-        #                                             self.xyz_noise_std,
-        #                                             self.ryp_noise_std)
-
-        # if cur_ego_pose_flag:
-        #     transformation_matrix = x1_to_x2(delay_cav_lidar_pose,
-        #                                      cur_ego_lidar_pose)
-        #     spatial_correction_matrix = np.eye(4)
-        # else:
-        #     transformation_matrix = x1_to_x2(delay_cav_lidar_pose,
-        #                                      delay_ego_lidar_pose)
-        #     spatial_correction_matrix = x1_to_x2(delay_ego_lidar_pose,
-        #                                          cur_ego_lidar_pose)
-        # This is only used for late fusion, as it did the transformation
-        # in the postprocess, so we want the gt object transformation use
-        # the correct one
-        # gt_transformation_matrix = x1_to_x2(cur_cav_lidar_pose,
-        #                                     cur_ego_lidar_pose)
-
-        # we always use current timestamp's gt bbx to gain a fair evaluation
-        delay_params['vehicles'] = cur_params['vehicles']
-        # delay_params['transformation_matrix'] = transformation_matrix
-        # delay_params['gt_transformation_matrix'] = \
-        #     gt_transformation_matrix
-        # delay_params['spatial_correction_matrix'] = spatial_correction_matrix
-
-        return delay_params
-    
-    def time_delay_calculation(self, ego_flag):
-        """
-        Calculate the time delay for a certain vehicle.
-
-        Parameters
-        ----------
-        ego_flag : boolean
-            Whether the current cav is ego.
-
-        Return
-        ------
-        time_delay : int
-            The time delay quantization.
-        """
-        # there is not time delay for ego vehicle
-        if ego_flag:
-            return 0
-        # time delay real mode
-        if self.async_mode == 'real':
-            # in the real mode, time delay = systematic async time + data
-            # transmission time + backbone computation time
-            overhead_noise = np.random.uniform(0, self.async_overhead)
-            tc = self.data_size / self.transmission_speed * 1000
-            time_delay = int(overhead_noise + tc + self.backbone_delay)
-        elif self.async_mode == 'sim':
-            # in the simulation mode, the time delay is constant
-            # time_delay = np.abs(self.async_overhead)
-            if self.async_overhead > 0:
-                if self.async_method == 'random':
-                    time_delay = torch.randint(0, self.async_overhead, (1,)).item() + 100
-                else:
-                    time_delay = self.async_overhead
-            else:
-                time_delay = 0
-
-        # the data is 10 hz for both opv2v and v2x-set
-        # todo: it may not be true for other dataset like DAIR-V2X and V2X-Sim
-        time_delay = time_delay // 100
-        return time_delay if self.async_flag else 0

@@ -1,7 +1,7 @@
 name: m3_base_v2xvit_wo_diffcomm_protocol
-root_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/train"
-validate_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/validate"
-test_dir: "/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/dataset/OPV2V/test"
+root_dir: "opencood/dataset/OPV2V/train"
+validate_dir: "opencood/dataset/OPV2V/validate"
+test_dir: "opencood/dataset/OPV2V/test"
 
 yaml_parser: "load_general_params"
 train_params:

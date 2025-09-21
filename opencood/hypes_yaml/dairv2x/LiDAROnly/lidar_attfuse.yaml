@@ -1,8 +1,8 @@
 name: HeterBaseline_DAIR_lidar_attfuse
-data_dir: "dataset/my_dair_v2x/v2x_c/cooperative-vehicle-infrastructure"
-root_dir: "dataset/my_dair_v2x/v2x_c/cooperative-vehicle-infrastructure/train.json"
-validate_dir: "dataset/my_dair_v2x/v2x_c/cooperative-vehicle-infrastructure/val.json"
-test_dir: "dataset/my_dair_v2x/v2x_c/cooperative-vehicle-infrastructure/val.json"
+data_dir: "opencood/dataset/dair_v2x"
+root_dir: "opencood/dataset/dair_v2x/train.json"
+validate_dir: "opencood/dataset/dair_v2x/val.json"
+test_dir: "opencood/dataset/dair_v2x/eval.json"
 
 yaml_parser: "load_general_params"
 train_params:

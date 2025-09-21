@@ -68,14 +68,14 @@ bubble_size = [s * 20 for s in comm_cost]
 fig, ax1 = plt.subplots(figsize=(4.5, 2.8))
 
 # 左轴：性能
-color_perf = 'r'
+color_perf = '#E54C5E'
 line1, = ax1.plot(index, performance, '-', color=color_perf, label='Performance (AP50)', zorder=1)
 
 # 气泡图：通信量
 sc1 = ax1.scatter(
     index, performance,
     s=bubble_size, color=color_perf,
-    alpha=0.6, edgecolors='k', linewidth=0.5, zorder=2
+    alpha=0.6, edgecolors='#E54C5E', linewidth=0.5, zorder=2
 )
 
 ax1.set_xlabel('Channel Size')
@@ -88,15 +88,15 @@ ax1.set_ylim(min(performance) - 0.02, max(performance) + 0.05)
 
 # 右轴：推理时间
 ax2 = ax1.twinx()
-color_time = '#1f77b4'
+color_time = '#4874CB'
 line2, = ax2.plot(index, inference_time, '-', color=color_time, label='Inference Time (ms)', zorder=0)
 ax2.set_ylabel('Inference Time (ms)', color=color_time)
 ax2.tick_params(axis='y', labelcolor=color_time)
 
 # 自定义图例项：通信量气泡
-bubble_legend = mlines.Line2D([], [], color='r', marker='o', linestyle='None',
-                               markersize=10, markerfacecolor='r', alpha=0.5,
-                               markeredgecolor='k', label='Communication Volume')
+bubble_legend = mlines.Line2D([], [], color='#E54C5E', marker='o', linestyle='None',
+                               markersize=10, markerfacecolor='#E54C5E', alpha=0.5,
+                               markeredgecolor="#E54C5E", label='Communication Volume')
 
 
 # 图例合并
@@ -106,7 +106,7 @@ ax1.legend(lines, labels, loc='upper left', prop={'size': 9})
 
 # 保存
 plt.tight_layout()
-plt.savefig('vis_result/vis_ablation_ch.png', dpi=500)
+plt.savefig('vis_result/vis_ablation_ch.pdf', dpi=600)
 plt.close()
 print("Saved to vis_result/vis_ablation_ch.png")
 

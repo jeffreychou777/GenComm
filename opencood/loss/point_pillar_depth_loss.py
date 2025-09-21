@@ -2,7 +2,7 @@
 # Author: Yifan Lu <yifan_lu@sjtu.edu.cn>
 # License: TDG-Attribution-NonCommercial-NoDistrib
 
-import wandb
+import swanlab as wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

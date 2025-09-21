@@ -177,7 +177,7 @@ def main():
 
             pred_box_tensor = infer_result['pred_box_tensor']
             gt_box_tensor = infer_result['gt_box_tensor']
-            pred_score = infer_result['pred_score']
+            pred_score = infer_result['pred_score']          # [N ,2] socre and class
             gt_label_tensor = infer_result['gt_label_tensor']
             
             
@@ -240,15 +240,15 @@ def main():
                 #                     method='3d',
                 #                     left_hand=left_hand)
                  
-                # TO-DO: fix vis for v2xreal 
-                # vis_save_path = os.path.join(vis_save_path_root, 'bev_%05d.png' % i)
-                # simple_vis.visualize(infer_result,
-                #                     batch_data['ego'][
-                #                         'origin_lidar'][0],
-                #                     hypes['postprocess']['gt_range'],
-                #                     vis_save_path,
-                #                     method='bev',
-                #                     left_hand=left_hand)
+                vis_save_path = os.path.join(vis_save_path_root, 'bev_%05d.png' % i)
+                simple_vis.visualize(infer_result,
+                                    batch_data['ego'][
+                                        'origin_lidar'][0],
+                                    hypes['postprocess']['gt_range'],
+                                    vis_save_path,
+                                    method='bev',
+                                    left_hand=left_hand,
+                                    v2xreal_flag=True)
         torch.cuda.empty_cache()
 
     # _, ap50, ap70 = eval_utils.eval_final_results(result_stat,

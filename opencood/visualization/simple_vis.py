@@ -10,7 +10,7 @@ from opencood.tools.inference_utils import get_cav_box
 import opencood.visualization.simple_plot3d.canvas_3d as canvas_3d
 import opencood.visualization.simple_plot3d.canvas_bev as canvas_bev
 
-def visualize(infer_result, pcd, pc_range, save_path, method='3d', left_hand=False):
+def visualize(infer_result, pcd, pc_range, save_path, method='3d', left_hand=False, v2xreal_flag=False):
         """
         Visualize the prediction, ground truth with point cloud together.
         They may be flipped in y axis. Since carla is left hand coordinate, while kitti is right hand.
@@ -58,6 +58,8 @@ def visualize(infer_result, pcd, pc_range, save_path, method='3d', left_hand=Fal
             pred_name = ['pred'] * pred_box_np.shape[0]
 
             score = infer_result.get("score_tensor", None)
+            if v2xreal_flag:
+                score = score[:,0]  # only keep the confidence score for v2xreal
             if score is not None:
                 score_np = score.cpu().numpy()
                 pred_name = [f'score:{score_np[i]:.3f}' for i in range(score_np.shape[0])]

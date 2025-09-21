@@ -64,8 +64,8 @@ def main():
     model.eval()
 
     # add noise to pose.
-    pos_std_list = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
-    rot_std_list = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
+    pos_std_list = [0, 0.2, 0.4, 0.6, 0.8]
+    rot_std_list = [0, 0.2, 0.4, 0.6, 0.8]
     pos_mean_list = [0, 0, 0, 0, 0, 0]
     rot_mean_list = [0, 0, 0, 0, 0, 0]
     # pos_std_list = [1]

@@ -4,7 +4,7 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
-os.chdir('/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
+os.chdir('/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm')
 # args = 'python -m lilab.multiview_scripts_new.s2_matpkl2ballpkl /mnt/liying.cibr.ac.cn_Data_Temp/multiview-large/TPH2KOxWT/2022-06-16ball.matpkl --time 1 9 17 23 27'
 # args = 'python -m lilab.metric_seg.s3_cocopkl_vs_cocopkl --gt_pkls /home/liying_lab/chenxinfeng/DATA/CBNetV2/data/rats_metric/te1/intense_pannel.cocopkl --pred_pkls /home/liying_lab/chenxinfeng/DATA/CBNetV2/data/rats_metric/te2/intense_pannel.cocopkl '
 
@@ -34,7 +34,7 @@ vis_codebook = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou
 
 v2xreal = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/lidar_attfuse_m3.yaml'
 
-v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/V2XReal_m1m2_att'
+v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m2m3m4_att_infer'
 
 v2xreal_gencomm = 'python opencood/tools/train.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/gencomm/m4_gencomm_attfuse.yaml'
 v2xreal_backalign = 'python opencood/tools/train.py -y None --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/V2XReal_m1m2_att'
@@ -43,7 +43,25 @@ v2xreal_mpda = 'python opencood/tools/train.py -y None --model_dir /home/junfei.
 
 org_heter_order = 'python opencood/tools/inference_heter_in_order.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/m1m2m3_att --use_cav [2,3]'
 v2xreal_heter_infer = 'python opencood/tools/inference_v2xreal_heter_in_order.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/codebook/V2XReal_m1m2_att --use_cav [2]'
-args = v2xreal_heter_infer
+
+stamp_test = 'python opencood/tools/train_stamp.py -y None --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/m0m1_att'
+
+fcooper_debug = 'python opencood/tools/train.py -y /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/LiDAROnly/lidar_fcooper.yaml'
+v2xreal_debug = 'python opencood/tools/train.py -y /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/v2xreal/baseline/lidar_attfuse_m1.yaml'
+stamp_debug = 'python opencood/tools/train_stamp.py -y None --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/m0m4_att'
+dair_hetero = 'python opencood/tools/train.py -y /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/dairv2x/LiDAROnly/lidar_attfuse.yaml'
+dair_stamp = 'python opencood/tools/train_stamp.py -y None --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/dair/m0m3_att'
+
+v2xreal_stamp_infer = 'python opencood/tools/inference_v2xreal_heter_in_order.py --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/infer --use_cav [2,3,4]'
+dair_stamp_infer = 'python opencood/tools/inference.py --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/dair/m1m3_att_infer --use_cav [2]'
+
+backalign_infer = 'python opencood/tools/inference.py --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/backalign/m1m2_att'
+v2xreal_infer = 'python opencood/tools/inference_v2xreal.py --model_dir /DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/HeterBaselin_V2XReal_lidar_attfuse_m1_2025_07_27_03_42_31'
+
+# args = v2xreal_infer
+args = dair_stamp_infer
+
+
 # args = 'python opencood/tools/inference.py --model_dir /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/m1_diffcomm_enhance_2025_03_30_01_47_16'
 
 # args = 'python opencood/tools/train_gmatch.py -y /home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/hypes_yaml/opv2v/DiffComm/base_training/verify/m1_att_diffcomm_dropout.yaml'
