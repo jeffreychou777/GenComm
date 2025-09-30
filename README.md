@@ -1,14 +1,14 @@
 # GenComm (**Gen**erative **Comm**unication mechanism)
 ### [NeurIPS 2025] Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism
-[Junfei Zhou](https://github.com/jeffreychou777), [Penglin Dai](https://itsgroups.github.io/)✉, [Quanmin Wei](https://github.com/fengxueguiren), Bingyi Liu,Xiao Wu, Jianping Wang
+[Junfei Zhou](https://github.com/jeffreychou777), [Penglin Dai](https://itsgroups.github.io/)✉, [Quanmin Wei](https://github.com/fengxueguiren), [Bingyi Liu](http://cst.whut.edu.cn/xygk/szdw/201809/t20180911_876964.shtml), [Xiao Wu](https://faculty.swjtu.edu.cn/wuxiao1/zh_CN/index.htm), [Jianping Wang](https://scholars.cityu.edu.hk/en/persons/jianwang)
 
 
 [Homepage]() | [ArXiv]() | [Zhihu]()
 
 
 
-This repository provides a unified and integrated multi-agent collaborative perception framework, extended from [**HELA**]() to support heterogeneous settings across sensors, modalities, and models.
-Building on [**HELA**](), we add support for additional features, datasets, and multiple heterogeneous collaboration methods.
+This repository provides a unified and integrated multi-agent collaborative perception framework, extended from [**HEAL**]() to support heterogeneous settings across sensors, modalities, and models.
+Building on [**HEAL**](), we add support for additional features, datasets, and multiple heterogeneous collaboration methods.
 Explore this repository to discover the ultimate experience of heterogeneous collaboration.🌟
 
 
@@ -38,22 +38,24 @@ Explore this repository to discover the ultimate experience of heterogeneous col
 - Robustness Setiing
   - [x] Pose error
 
-### What's more: 🌟
+### What's new 🌟
 
 - Multiple heterogeneous collaboration methods
-  - [x] [MPDA [ICRA 2023]]()
-  - [x] [BackAlign [ICLR 2024]]()
-  - [x] [CodeFilling [CVPR 2025]]()
-  - [x] [STAMP [ICLR 2025]]()
+  - [x] [MPDA [ICRA 2023]](https://arxiv.org/pdf/2210.08451)
+  - [x] [BackAlign | HEAL [ICLR 2024]](https://openreview.net/forum?id=KkrDUGIASk)
+  - [x] [CodeFilling [CVPR 2024]](https://openaccess.thecvf.com/content/CVPR2024/papers/Hu_Communication-Efficient_Collaborative_Perception_via_Information_Filling_with_Codebook_CVPR_2024_paper.pdf)
+  - [x] [STAMP [ICLR 2025]](https://arxiv.org/pdf/2501.18616)
   - [x] [GenComm [NeurIPS 2025]]()
 
 - Additional Dataset Support
-  - [x] [V2X-Real(Real-World dataset with 4 agent, 2CAV & 2RSU) [ECCV 2024]]()
-
+  - [X] [V2V4REAL [CVPR 2023]](https://github.com/ucla-mobility/V2V4Real) (Real-world dataset with 2 agents, 1CAV & 1RSU)
+  - [x] [V2X-Real [ECCV 2024]](https://github.com/ucla-mobility/V2X-Real) (Real-World dataset with 4 agents, 2CAV & 2RSU)
 - Robustness Settings
   - [x] Communication delay
   - [x] Communication degradation
   - [x] LiDAR Simulation under snow and foggy weather
+
+- Two variants of AP computation, See details [here](https://github.com/DerrickXuNu/OpenCOOD/issues/104)
 
 ## Data Preparation
 - OPV2V: Please refer to [this repo](https://github.com/DerrickXuNu/OpenCOOD). You also need to download `additional-001.zip` which stores data for camera modality.
@@ -158,7 +160,9 @@ python opencood/tools/inference.py --model_dir ${CHECKPOINT_FOLDER} [--fusion_me
 
 ## Yaml Style & Yaml Zoo
 
-We introduced identifiers such as `m1`, `m2`, ... to indicate the modalities and models that an agent will use.  
+We provide detailed yaml configurations of each method and dataset in `/opencood/hypes_yaml/yaml_zoo.yaml`. Please check the file then you can set the right configuration you want.
+
+Following [HEAL](), We use identifiers such as `m1`, `m2`, ... to indicate the modalities and models that an agent will use.  
 
 However, yaml files without identifiers like `m1` (if you are familiar with the [CoAlign](https://github.com/yifanlu0227/CoAlign) repository) still work in this repository. For example, [PointPillar Early Fusion](https://github.com/yifanlu0227/CoAlign/blob/main/opencood/hypes_yaml/opv2v/lidar_only_with_noise/pointpillar_early.yaml). 
 

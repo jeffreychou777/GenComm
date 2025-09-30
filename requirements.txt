@@ -20,4 +20,4 @@ efficientnet_pytorch==0.7.0
 scikit_learn
 python-lzf
 termcolor
-git+https://github.com/klintan/pypcd.git
+git+ssh://git@github.com/klintan/pypcd.git
