@@ -7,7 +7,9 @@ from datetime import datetime
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.distributed as dist
 from tensorboardX import SummaryWriter
-import swanlab as wandb
+# import wandb # if use wandb, import this.
+import swanlab as wandb # if you use swanlab, import this as wandb for compatibility
+# if you dont use either, comment the above two lines and any wandb lines in the code and loss file.
 import opencood.hypes_yaml.yaml_utils as yaml_utils
 from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
@@ -38,7 +40,7 @@ def init_wandb(hypes, current_time):
     if dist.get_rank() == 0:
 
         run_name = hypes['name'] + current_time.strftime("_%Y_%m_%d_%H_%M_%S")
-        wandb.init(project="DiffComm", name=run_name, config=hypes)
+        wandb.init(project="GenComm", name=run_name, config=hypes)
 
         
 

@@ -168,17 +168,6 @@ def merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir
         single_model_dict = torch.load(single_model_path, map_location='cpu')
     stage1_model_path = get_model_path_from_dir(stage1_model_dir)
     stage1_model_dict = torch.load(stage1_model_path, map_location='cpu')
-    # 对 stage1_model_dict 中的 message_extractor 参数加后缀 _m1
-    for key in list(stage1_model_dict.keys()):
-        if key.startswith('message_extractor.'):
-            new_key = key.replace('message_extractor.', 'message_extractor_m1.')
-            stage1_model_dict[new_key] = stage1_model_dict.pop(key)
-
-    # # 对 single_model_dict 中的 message_extractor 参数加后缀 _m3
-    # for key in list(single_model_dict.keys()):
-    #     if key.startswith('message_extractor.'):
-    #         new_key = key.replace('message_extractor.', 'message_extractor_m2.')
-    #         single_model_dict[new_key] = single_model_dict.pop(key)
     
     merged_dict = merge_dict_diffcomm(single_model_dict, stage1_model_dict)
     
@@ -279,22 +268,27 @@ def change_modality_key_name(log_path,):
 
 
 if __name__ == "__main__":
-    # func = sys.argv[1]
-    # if func == 'rename_to_new_version':
-    #     checkpoint_path = sys.argv[2]
-    #     rename_to_new_version(checkpoint_path)
-    # elif func == 'remove_m4_trunk':
-    #     checkpoint_path = sys.argv[2]
-    #     remove_m4_trunk(checkpoint_path)
-    # elif func == 'merge':
-    #     single_model_dir = sys.argv[2]
-    #     stage1_model_dir = sys.argv[3]
-    #     output_model_dir = sys.argv[4]
-    #     merge_and_save(single_model_dir, stage1_model_dir, output_model_dir)
-    # elif func == 'merge_final': 
-    #     merge_and_save_final(sys.argv[2:-1], sys.argv[-1])
-    # else:
-    #     raise "This function not implemented"
+    func = sys.argv[1]
+    if func == 'rename_to_new_version':
+        checkpoint_path = sys.argv[2]
+        rename_to_new_version(checkpoint_path)
+    elif func == 'remove_m4_trunk':
+        checkpoint_path = sys.argv[2]
+        remove_m4_trunk(checkpoint_path)
+    elif func == 'add_suffix_to_keys_save':
+        log_path = sys.argv[2]
+        suffix = sys.argv[3]
+        save_path = sys.argv[4]
+        add_suffix_to_keys_save(log_path, suffix, save_path)
+    elif func == 'merge':
+        single_model_dir = sys.argv[2]
+        stage1_model_dir = sys.argv[3]
+        output_model_dir = sys.argv[4]
+        merge_and_save(single_model_dir, stage1_model_dir, output_model_dir)
+    elif func == 'merge_and_save': 
+        merge_and_save_final(sys.argv[2:-1], sys.argv[-1])
+    else:
+        raise "This function not implemented"
     
     # change_modality_key_name(log_path='/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DAIR_m3_attfuse_wo_diffcomm_2025_04_28_06_44_56')
     
@@ -305,9 +299,9 @@ if __name__ == "__main__":
     # merge_and_save_diffcomm(single_model_dir, stage1_model_dir, output_model_dir, dair_flag=False)
     
     
-    add_suffix_to_keys_save(log_path = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m3_v2xvit_infer',
-                            suffix = 'm1',
-                            save_path='/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m3_v2xvit_infer')
+    # add_suffix_to_keys_save(log_path = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m3_v2xvit_infer',
+    #                         suffix = 'm1',
+    #                         save_path='/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m1m3_v2xvit_infer')
     
     # m0_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/opv2v-h/m0_v2xvit_ckp'
     # m1_dir = '/DATACENTER3/home/junfei.zhou/DATACENTER2/data/code/DiffComm/opencood/logs/DiffComm/stamp/v2xreal/m1_ckp'

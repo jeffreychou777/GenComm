@@ -15,7 +15,9 @@ from opencood.tools import train_utils
 from opencood.data_utils.datasets import build_dataset
 
 from icecream import ic
-import swanlab as wandb
+# import wandb # if use wandb, import this.
+import swanlab as wandb # if you use swanlab, import this as wandb for compatibility
+# if you dont use either, comment the above two lines and any wandb lines in the code and loss file.
 
 
 def train_parser():
@@ -36,7 +38,7 @@ def main():
     hypes = yaml_utils.load_yaml(opt.hypes_yaml, opt)
     current_time = datetime.now()
     run_name = hypes['name'] + current_time.strftime("_%Y_%m_%d_%H_%M_%S")
-    wandb.init(project="DiffComm", name=run_name, config=hypes)
+    wandb.init(project="GenComm", name=run_name, config=hypes)
     print('Dataset Building')
     opencood_train_dataset = build_dataset(hypes, visualize=False, train=True)
     opencood_validate_dataset = build_dataset(hypes,

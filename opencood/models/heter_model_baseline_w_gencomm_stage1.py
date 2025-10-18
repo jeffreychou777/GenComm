@@ -18,34 +18,32 @@ from opencood.models.sub_modules.base_bev_backbone import BaseBEVBackbone
 from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.fuse_modules.fusion_in_one import MaxFusion, AttFusion, DiscoFusion, V2VNetFusion, V2XViTFusion, CoBEVT, Where2commFusion, Who2comFusion
+from opencood.models.gencomm_modules.cond_diff import GenComm
+from opencood.models.gencomm_modules.enhancer import Enhancer
+from opencood.models.gencomm_modules.message_extractor_v2 import MessageExtractorv2
 from opencood.utils.transformation_utils import normalize_pairwise_tfm
 from opencood.utils.model_utils import check_trainable_module, fix_bn, unfix_bn
-from opencood.models.mpda_modules.classfier import DAImgHead
-from opencood.models.mpda_modules.resizer import LearnableResizer
-from opencood.models.mpda_modules.wg_fusion_modules import CrossDomainFusionEncoder
-from opencood.models.fuse_modules.fusion_in_one import regroup
-from opencood.tools.heal_tools import merge_dict_mpda
 import importlib
 import torchvision
+from opencood.visualization.vis_bevfeat import vis_bev
+from opencood.models.fuse_modules.fusion_in_one import regroup
 
-class HeterModelBaselineWMPDA(nn.Module):
+class HeterModelBaselineWGenComm(nn.Module):
     def __init__(self, args):
-        super(HeterModelBaselineWMPDA, self).__init__()
-        self.resizer = LearnableResizer(args['resizer'])
-        self.cdt = CrossDomainFusionEncoder(args['cdt'])
-        self.classifier = DAImgHead(args['classifier'])if 'classifier' in args else DAImgHead(128)
+        super(HeterModelBaselineWGenComm, self).__init__()
         self.args = args
-        self.rebuttal = args.get('rebuttal', False)
-        self.spatial_shrinker_flag = args.get('spatial_shrinker', False)
-
+        self.gencomm = GenComm(args['gencomm'])
         self.missing_message = args.get('missing_message', False)
+        
         modality_name_list = list(args.keys())
         modality_name_list = [x for x in modality_name_list if x.startswith("m") and x[1:].isdigit()] 
         self.modality_name_list = modality_name_list
+
         self.ego_modality = args['ego_modality']
+
         self.cav_range = args['lidar_range']
         self.sensor_type_dict = OrderedDict()
-        self.fix_modules = []
+
         # setup each modality model
         for modality_name in self.modality_name_list:
             model_setting = args[modality_name]
@@ -84,7 +82,9 @@ class HeterModelBaselineWMPDA(nn.Module):
             shrink conv building
             """
             setattr(self, f"shrinker_{modality_name}", DownsampleConv(model_setting['shrink_header']))
-            self.fix_modules += [f"encoder_{modality_name}", f"backbone_{modality_name}", f"shrinker_{modality_name}"]
+            setattr(self, f"message_extractor_{modality_name}", MessageExtractorv2(args['message_extractor']['in_ch'], args['message_extractor']['out_ch']))
+            print('message_extractor: message_extractorv2')
+
             if sensor_name == "camera":
                 camera_mask_args = model_setting['camera_mask_args']
                 setattr(self, f"crop_ratio_W_{modality_name}", (self.cav_range[3]) / (camera_mask_args['grid_conf']['xbound'][1]))
@@ -92,17 +92,15 @@ class HeterModelBaselineWMPDA(nn.Module):
                 setattr(self, f"xdist_{modality_name}", (camera_mask_args['grid_conf']['xbound'][1] - camera_mask_args['grid_conf']['xbound'][0]))
                 setattr(self, f"ydist_{modality_name}", (camera_mask_args['grid_conf']['ybound'][1] - camera_mask_args['grid_conf']['ybound'][0]))
 
-            if self.spatial_shrinker_flag:
-                setattr(self, f'spatial_shrinker_{modality_name}', nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1))
-                setattr(self, f'spatial_deshrinker_{modality_name}', nn.ConvTranspose2d(256, 256, kernel_size=4, stride=2, padding=1))
-                
-            
-            
         """For feature transformation"""
         self.H = (self.cav_range[4] - self.cav_range[1])
         self.W = (self.cav_range[3] - self.cav_range[0])
         self.fake_voxel_size = 1
-
+        
+        self.gmatch = False
+        if 'gmatch' in args and args['gmatch']:
+            self.gmatch = True
+            
         self.num_class = args['num_class'] if "num_class" in args else 1
         self.supervise_single = False
         if args.get("supervise_single", False):
@@ -128,8 +126,6 @@ class HeterModelBaselineWMPDA(nn.Module):
             self.fusion_net = Where2commFusion(args['where2comm'])
         if args['fusion_method'] == 'who2com':
             self.fusion_net = Who2comFusion(args['who2com'])
-
-
         """
         Shrink header
         """
@@ -147,20 +143,24 @@ class HeterModelBaselineWMPDA(nn.Module):
                                   kernel_size=1)
         self.dir_head = nn.Conv2d(args['in_head'], args['dir_args']['num_bins'] * args['anchor_number'],
                                   kernel_size=1) # BIN_NUM = 2
+
+        if 'enhancer' in args:
+            self.enhancer = Enhancer(self.args['enhancer']['in_ch'], [8, 8], 4)
+            print("use enhancer")
         
         # compressor will be only trainable
-        self.compress = False
+        self.compress = False 
         if 'compressor' in args:
             self.compress = True
             self.compressor = NaiveCompressor(args['compressor']['input_dim'],
                                               args['compressor']['compress_ratio'])
-            self.model_train_init_compressor()
+            self.model_train_init()
 
-        self.model_train_init_mpda()
+
         # check again which module is not fixed.
         check_trainable_module(self)
 
-    def model_train_init_compressor(self):
+    def model_train_init(self):
         if self.compress:
             # freeze all
             self.eval()
@@ -170,12 +170,7 @@ class HeterModelBaselineWMPDA(nn.Module):
             self.compressor.train()
             for p in self.compressor.parameters():
                 p.requires_grad_(True)
-    def model_train_init_mpda(self):
-        for module in self.fix_modules:
-            for p in eval(f"self.{module}").parameters():
-                p.requires_grad_(False)
-            eval(f"self.{module}").apply(fix_bn)
-    
+
     def forward(self, data_dict):
         output_dict = {}
         agent_modality_list = data_dict['agent_modality_list'] 
@@ -185,7 +180,8 @@ class HeterModelBaselineWMPDA(nn.Module):
 
         modality_count_dict = Counter(agent_modality_list)
         modality_feature_dict = {}
-        # print(modality_count_dict)
+        modality_message_dict = {}
+
         for modality_name in self.modality_name_list:
             if modality_name not in modality_count_dict:
                 continue
@@ -193,8 +189,9 @@ class HeterModelBaselineWMPDA(nn.Module):
             if not isinstance(eval(f"self.backbone_{modality_name}"), nn.Identity):
                 feature = eval(f"self.backbone_{modality_name}")({"spatial_features": feature})['spatial_features_2d']
             feature = eval(f"self.shrinker_{modality_name}")(feature)
-            feature  = eval(f"self.spatial_shrinker_{modality_name}")(feature) if self.spatial_shrinker_flag else feature
+            message = eval(f"self.message_extractor_{modality_name}")(feature)
             modality_feature_dict[modality_name] = feature
+            modality_message_dict[modality_name] = message
 
         """
         Crop/Padd camera feature map.
@@ -216,53 +213,30 @@ class HeterModelBaselineWMPDA(nn.Module):
                         })
 
         """
-        Assemble heter features
+        Assemble heter features and messages
         """
-
         counting_dict = {modality_name:0 for modality_name in self.modality_name_list}
         heter_feature_2d_list = []
+        heter_message_list = []
         for modality_name in agent_modality_list:
             feat_idx = counting_dict[modality_name]
             heter_feature_2d_list.append(modality_feature_dict[modality_name][feat_idx])
+            heter_message_list.append(modality_message_dict[modality_name][feat_idx])
             counting_dict[modality_name] += 1
 
         heter_feature_2d = torch.stack(heter_feature_2d_list)
+        heter_message = torch.stack(heter_message_list)
         
-        ######MPDA########
-        heter_feature_split = regroup(heter_feature_2d, record_len)
-        class_labels = []
-        class_logits = []
-        reshaped_spatial_feature_list = []
-        for i in range(len(heter_feature_split)):
-            ego_feature = heter_feature_split[i][0].unsqueeze(0)
-            class_labels.append(0)
-            if heter_feature_split[i].shape[0] == 1:     # only ego
-                cav_feature = ego_feature
-                cav_feature = self.resizer(ego_feature, cav_feature)        
-                ego_copy = ego_feature.clone()
-                cav_feature = self.cdt(ego_copy, cav_feature)
-                class_logits.append(self.classifier(torch.cat((ego_feature, ),dim=0)))
-                reshaped_spatial_feature_list.append(torch.cat((ego_feature,),dim=0))
-            else:
-                cav_feature = heter_feature_split[i][1:]
-                for j in range(len(cav_feature)):
-                    class_labels.append(1)
-                if self.rebuttal:
-                    cav_feature = cav_feature
-                else:
-                    cav_feature = self.resizer(ego_feature, cav_feature)        
-                    ego_copy = ego_feature.repeat(cav_feature.shape[0], 1, 1, 1)
-                    cav_feature = self.cdt(ego_copy, cav_feature)
-                class_logits.append(self.classifier(torch.cat((ego_feature,cav_feature),dim=0)))
-                reshaped_spatial_feature_list.append(torch.cat((ego_feature,cav_feature),dim=0))
-                
-        heter_feature_2d = torch.cat(reshaped_spatial_feature_list, dim=0)
-        # class_labels = torch.tensor(class_labels).to(heter_feature_2d.device)
-        # class_labels = class_labels.unsqueeze(1)
-        class_logits = torch.cat(class_logits, dim=0)
-        if self.compress:
-            heter_feature_2d = self.compressor(heter_feature_2d)
-
+        if not self.training and self.missing_message:  # for missing_massage inference
+            # 对heter_message应用mask，保持ego不变，其余40%置0
+            for i in range(1, heter_message.shape[0]):
+                mask = torch.rand(heter_message.shape[1], heter_message.shape[2], heter_message.shape[3], device=heter_message.device) > 0.4
+                heter_message[i] = heter_message[i] * mask
+            
+            
+        
+        
+        conditions = heter_message
         """
         Single supervision
         """
@@ -280,33 +254,36 @@ class HeterModelBaselineWMPDA(nn.Module):
         we omit self.backbone's first layer.
         """
         
-        if not self.training and self.missing_message:  # for missing_massage inference
-            # 对heter_message应用mask，保持ego不变，其余20%置0
-            missing_level = 0.05
-            noise_level = 3
-            print(f"Missing:{missing_level} Noise:{noise_level} inference")
-            for i in range(1, heter_feature_2d.shape[0]):
-                mask = torch.rand(heter_feature_2d.shape[1], heter_feature_2d.shape[2], heter_feature_2d.shape[3], device=heter_feature_2d.device) > missing_level
-                noise = torch.randn_like(heter_feature_2d[i]) * noise_level
-                heter_feature_2d[i] = heter_feature_2d[i] * mask + noise
-
+        gt_feature = heter_feature_2d
+        gen_data_dict = self.gencomm(heter_feature_2d, conditions, record_len)
+        pred_feature = gen_data_dict['pred_feature']
+        output_dict.update({'gt_feature': gt_feature,
+                            'pred_feature': pred_feature})
         
-        if self.spatial_shrinker_flag:
-            heter_feature_list = []
-            for i in range(len(agent_modality_list)):
-                modality_name = agent_modality_list[i]
-                heter_feature_list.append(eval(f"self.spatial_deshrinker_{modality_name}")(heter_feature_2d[i].unsqueeze(0)))
-            heter_feature_2d = torch.cat(heter_feature_list, dim=0)
-
-        """
-        Feature Fusion (multiscale).
-
-        we omit self.backbone's first layer.
-        """
+        
+        heter_feature_2d = pred_feature
+        
+        # ###
+        # ###replace ego feat ure with gt_feature
+        # split_gt_feature = regroup(gt_feature, record_len)
+        # split_pred_feature = regroup(heter_feature_2d, record_len)
+        # ego_index = 0
+        # for index in range(len(split_gt_feature)):
+        #     heter_feature_2d[ego_index] = split_gt_feature[index][0]
+        #     ego_index = ego_index + split_gt_feature[index].shape[0]
+    
+        
+ 
+        if len(heter_feature_2d.shape) == 3:
+            heter_feature_2d = heter_feature_2d.unsqueeze(0) ## for the case of bs=1 and only ego
+        if hasattr(self, 'enhancer'):
+            heter_feature_2d = self.enhancer(heter_feature_2d, affine_matrix, record_len)
+            
         fused_feature = self.fusion_net(heter_feature_2d, record_len, affine_matrix)
-        
+
         if self.shrink_flag:
             fused_feature = self.shrink_conv(fused_feature)
+
 
         cls_preds = self.cls_head(fused_feature)
         reg_preds = self.reg_head(fused_feature)
@@ -315,7 +292,6 @@ class HeterModelBaselineWMPDA(nn.Module):
         output_dict.update({'cls_preds': cls_preds,
                             'reg_preds': reg_preds,
                             'dir_preds': dir_preds,
-                            'da_feature': class_logits,
-                            'record_len': record_len,})
+                            'message': conditions})
 
         return output_dict
