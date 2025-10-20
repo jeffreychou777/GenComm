@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
     <link rel="stylesheet" href="./static/css/index.css">
-    <link rel="icon" href="./static/images/traffic.png">
+    <link rel="icon" href="./static/images/swjtu.png">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -76,6 +76,14 @@
         width: 72%;
         height: auto;
     }
+    .gradient-text {
+        background: linear-gradient(90deg, rgb(68,114,196), rgb(112,173,71));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent; /* Safari */
+        display: inline-block;
+    }
 
     /* 针对屏幕宽度小于768px（一般是手机）时设置宽度为100% */
     @media (max-width: 768px) {
@@ -125,19 +133,20 @@
         <div class="container is-max-desktop">
             <div class="columns is-centered">
                 <div class="column has-text-centered">
-                    <h1 class="title is-2 publication-title">GenComm</h1>
+                    <h1 class="title is-2 publication-title gradient-text">GenComm</h1>
                     <h1 class="title is-3 publication-title">Pragmatic Heterogeneous Collaborative
-                        Perception via Generative Communication Mechanism</h1>
-                    <h4 class="title is-4 publication-title" style="color: #c73642;">
+                        Perception via <span class="gradient-text">Generative Communication Mechanism</span></h1>
+                    <h4 class="title is-4 publication-title">
                         <!-- NeurIPS 2025 <a href="https://wdfm-ad.github.io/">WDFM-AD</a> -->
-                        NeurIPS 2025 Poster
+                        <span class="gradient-text">NeurIPS 2025 Poster</span>
                     </h4>
                     <div class="is-size-5 publication-authors">
               <span class="author-block">
                 <a href="https://jeffreychou777.github.io/">Junfei Zhou</a><sup>1,2</sup>,</span>
                         <span class="author-block">     
-                <a href="https://itsgroups.github.io/">Penglin Dai</a><sup>1,2</sup>,</span>
-                        <span class="fa-regular fa-envelope fa-shake">
+                <a href="https://itsgroups.github.io/">Penglin Dai</a><sup>1,2</sup><i
+                                class="fa-regular fa-envelope fa-shake"></i></sup>
+                        <span >
                 <a href="https://github.com/fengxueguiren">Quanmin Wei</a><sup>1,2</sup>,</span>
                         <span class="author-block">
                 <a href="http://cst.whut.edu.cn/xygk/szdw/201809/t20180911_876964.shtml">Bingyi Liu</a><sup>3</sup>,</span>
@@ -189,7 +198,80 @@
 </section>
 
 
-<section class="hero is-light is-small">
+
+
+
+<!-- Key Idea Section -->
+<section class="section">
+    <div class="container is-max-desktop">
+        <h2 class="title is-3">Key Idea</h2>
+        <div class="content">
+            <ul>
+                <li>Generate features consistent with ego features.</li>
+                <li>Preserve collaborators' spatial information.</li>
+            </ul>
+        </div>
+        <div class="image-container has-text-centered" style="max-width: 100%; margin: auto;">
+            <img src="static/images/idea.png" class="responsive-img" alt="Key idea illustration"/>
+        </div>
+    </div>
+    
+</section>
+
+<!-- Comparison with baselines Section -->
+<section class="section">
+    <div class="container is-max-desktop">
+        <h2 class="title is-3">Comparison with baselines</h2>
+        <div class="content">
+            <p>GenComm can simultaneously meet:</p>
+            <ul>
+                <li>Non-intrusive</li>
+                <li>Scalable</li>
+                <li>Plug &amp; Play</li>
+                <li>Efficient Communication</li>
+                <li>Private &amp; Secure</li>
+            </ul>
+        </div>
+        <div class="image-container" style="max-width: 100%; margin: auto;">
+            <object data="./static/images/intro.pdf#toolbar=0&navpanes=0&scrollbar=0" type="application/pdf" width="100%" style="height: 520px;">
+                <p>Your browser can't display PDFs. You can <a href="./static/images/intro.pdf">download the PDF</a> instead.</p>
+            </object>
+        </div>
+    </div>
+</section>
+
+<!-- GenComm Framework Section -->
+<section class="section">
+    <div class="container is-max-desktop">
+        <h2 class="title is-3">GenComm Framework</h2>
+        <div class="image-container" style="max-width: 100%; margin: auto;">
+            <object data="./static/images/framework.pdf#toolbar=0&navpanes=0&scrollbar=0" type="application/pdf" width="100%" style="height: 560px;">
+                <p>Your browser can't display PDFs. You can <a href="./static/images/framework.pdf">download the PDF</a> instead.</p>
+            </object>
+        </div>
+    </div>
+</section>
+
+<!-- Application Rational Section -->
+<section class="section">
+    <div class="container is-max-desktop">
+        <h2 class="title is-3">Application Rational</h2>
+        <div class="content">
+            <ul>
+                <li>Stage1: GenComm base training under homogeneous collaboration</li>
+                <li>Stage2: Specific Deformable Message Extractors training under heterogeneous collaboration</li>
+                <li>New agents join the collaboration by reaching a consensus with other vendors and training specific DMEs.</li>
+            </ul>
+        </div>
+        <div class="image-container" style="max-width: 100%; margin: auto;">
+            <object data="./static/images/application_rational.pdf#toolbar=0&navpanes=0&scrollbar=0" type="application/pdf" width="100%" style="height: 560px;">
+                <p>Your browser can't display PDFs. You can <a href="./static/images/application_rational.pdf">download the PDF</a> instead.</p>
+            </object>
+        </div>
+    </div>
+</section>
+
+<!-- <section class="hero is-light is-small">
     <div class="hero-body">
 
         <section class="hero teaser">
@@ -287,32 +369,34 @@
     </div>
 </section>
 
-<!-- Abstract Section -->
+Abstract Section -->
 <section class="hero is-small">
     <div class="hero-body">
         <div class="container"
              style="max-width: 1000px; margin: auto; padding: 20px; background-color: white; border-radius: 8px;">
             <h2 class="title is-3" style="text-align: center;">Abstract</h2>
             <div class="content" style="font-size: 16px; text-align: justify;">
-                Testing autonomous vehicles (AVs) requires diverse and escalating traffic scenarios, yet collecting real-world data remains prohibitively expensive.
-                While simulation-based approaches offer cost-effective alternatives, most existing methods lack sufficient support for intuitive, interactive editing of generated scenarios.
-                This paper presents <strong>Talk2Traffic</strong>, a novel framework that leverages multimodal large language models (MLLMs) to enable interactive and editable traffic scenario generation.
-                Talk2Traffic allows human users to generate various traffic scenarios through multimodal inputs (text, speech, and sketches).
-                Our approach employs an MLLM-based interpreter to extract structured representations from these inputs.
-                These representations are then translated into executable Scenic code using a retrieval-augmented generation mechanism to reduce hallucinations and ensure syntactic correctness.
-                A human feedback guidance component enables iterative refinement and editing of scenarios through natural language instructions.
-                Experiments demonstrate that Talk2Traffic outperforms state-of-the-art methods in generating challenging scenarios across multiple dimensions.
-                Qualitative evaluations further illustrate the framework can handle diverse input modalities and support scenario editing toward specific testing objectives.
+                Multi-agent collaboration enhances the perception capabilities of individual agents through information sharing. 
+                However, in real-world applications, differences in sensors and models across heterogeneous agents inevitably lead to domain gaps during collaboration. 
+                Existing approaches based on adaptation and reconstruction fail to support \textit{pragmatic heterogeneous collaboration} due to two key limitations: 
+                (1) Intrusive retraining of the encoder or core modules disrupts the established semantic consistency among agents; and 
+                (2) accommodating new agents incurs high computational costs, limiting scalability. To address these challenges, 
+                we present a novel <strong>Gen</strong>erative <strong>Comm</strong>unication mechanism (GenComm) that facilitates seamless perception across heterogeneous multi-agent systems through feature generation, 
+                without altering the original network, and employs lightweight numerical alignment of spatial information to efficiently integrate new agents at minimal cost. Specifically, 
+                a tailored Deformable Message Extractor is designed to extract spatial information for each collaborator, which is then transmitted in place of intermediate features. 
+                The Spatial-Aware Feature Generator, utilizing a conditional diffusion model,  
+                generates features aligned with the ego agent's semantic space while preserving the spatial information of the collaborators. These generated features are further refined by a Channel Enhancer before fusion. 
+                Experiments conducted on the OPV2V-H, DAIR-V2X and V2X-Real datasets demonstrate that GenComm outperforms existing state-of-the-art methods, achieving an 81\% reduction in both computational cost and parameter count when incorporating new agents.
             </div>
-            <div class="image-container has-text-centered" style="max-width: 100%; margin: auto;">
+            <!-- <div class="image-container has-text-centered" style="max-width: 100%; margin: auto;">
                 <img src="static/images/fig1.svg" class="responsive-img"/>
-            </div>
+            </div> -->
         </div>
     </div>
 </section>
 
 
-<section class="hero is-small">
+<!-- <section class="hero is-small">
     <div class="hero-body">
         <div class="container">
             <h2 class="title is-3" align="center">Talk2Traffic Architecture</h2>
@@ -321,7 +405,7 @@
             </div>
         </div>
     </div>
-</section>
+</section> -->
 
 
 <!--BibTex citation -->
@@ -330,12 +414,7 @@
         <h2 class="title">BibTeX</h2>
         <div style="position: relative;">
             <button id="copyButton" style="position: absolute; top: 0; right: 0;">Copy</button>
-            <pre><code id="bibtexCode">@inproceedings{sheng2025talk2traffic,
-  title={Talk2Traffic: Interactive and Editable Traffic Scenario Generation for Autonomous Driving with Multimodal Large Language Model},
-  author={Sheng, Zihao and Huang, Zilin and Qu, Yansong and Leng, Yue and Chen, Sikai},
-  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
-  year={2025}
-}</code></pre>
+            <pre><code id="bibtexCode">Coming soon</code></pre>
         </div>
     </div>
 </section>
