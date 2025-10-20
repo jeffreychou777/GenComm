@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="description"
+          content="Talk2Traffic: Interactive and Editable Traffic Scenario Generation for Autonomous Driving with Multimodal Large Language Model">
+    <meta name="keywords"
+          content="Autonomous Driving, Vision-Language Models, Traffi Scenario Generation">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Talk2Traffic</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="stylesheet" href="./static/css/index.css">
+    <link rel="icon" href="./static/images/traffic.png">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.min.js"></script>
+    <script src="./static/js/bulma-slider.min.js"></script>
+    <script src="./static/js/index.js"></script>
+</head>
+
+<style>
+    #btt-bttn {
+        display: inline-block;
+        background-color: rgba(126, 125, 125, 0.5);
+        width: 50px;
+        height: 50px;
+        text-align: center;
+        border-radius: 4px;
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        transition: background-color .3s,
+        opacity .5s, visibility .5s;
+        opacity: 0;
+        visibility: hidden;
+        z-index: 1000;
+    }
+
+    #btt-bttn::after {
+        content: "\f077";
+        font-family: FontAwesome;
+        font-weight: normal;
+        font-style: normal;
+        font-size: 2em;
+        line-height: 50px;
+        color: #fff;
+    }
+
+    #btt-bttn:hover {
+        cursor: pointer;
+        background-color: #333;
+    }
+
+    #btt-bttn:active {
+        background-color: #555;
+    }
+
+    #btt-bttn.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .responsive-img {
+        width: 72%;
+        height: auto;
+    }
+
+    /* 针对屏幕宽度小于768px（一般是手机）时设置宽度为100% */
+    @media (max-width: 768px) {
+        .responsive-img {
+            width: 100%;
+        }
+    }
+</style>
+
+<body>
+<a id="btt-bttn"></a>
+
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+        </a>
+    </div>
+    <div class="navbar-menu">
+        <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+            <a class="navbar-item" href="https://zihaosheng.github.io/">
+          <span class="icon">
+              <i class="fas fa-home"></i>
+          </span>
+            </a>
+            <div class="navbar-item has-dropdown is-hoverable">
+                <a class="navbar-link">
+                    More Research
+                </a>
+                <div class="navbar-dropdown">
+                    <a class="navbar-item" href="https://zihaosheng.github.io/CurricuVLM/">
+                        CurricuVLM
+                    </a>
+                    <a class="navbar-item" href="https://www.huang-zilin.com/VLM-RL-website/">
+                        VLM-RL
+                    </a>
+                    <a class="navbar-item" href="https://www.huang-zilin.com/HAIM-DRL-website/">
+                        HAIM-DRL
+                    </a>
+                    <a class="navbar-item" href="https://www.huang-zilin.com/PE-RLHF-website/">
+                        PE-RLHF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+
+<!--Title-->
+<section class="hero" style="margin-top: -30px;">
+    <div class="hero-body">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered">
+                <div class="column has-text-centered">
+                    <h1 class="title is-2 publication-title">Talk2Traffic</h1>
+                    <h1 class="title is-3 publication-title">Interactive and Editable Traffic Scenario
+                        Generation for Autonomous Driving with Multimodal Large Language Model</h1>
+                    <h4 class="title is-4 publication-title" style="color: #c73642;">
+                        CVPR 2025 <a href="https://wdfm-ad.github.io/">WDFM-AD</a>
+                    </h4>
+                    <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="https://zihaosheng.github.io/">Zihao Sheng</a><sup>1</sup>,</span>
+                        <span class="author-block">
+                <a href="https://github.com/zilin-huang">Zilin Huang</a><sup>1</sup>,</span>
+                        <span class="author-block">
+                <a href="https://scholar.google.com/citations?user=hIt7KnUAAAAJ&hl=en">Yansong Qu</a><sup>2</sup>,</span>
+                        <span class="author-block">
+                <a href="https://www.linkedin.com/in/yue-leng-aa8aa363/">Yue Leng</a><sup>3</sup>,</span>
+                        <span class="author-block">
+                <a href="https://sky-lab-uw.github.io/">Sikai Chen</a><sup>1,<i
+                                class="fa-regular fa-envelope fa-shake"></i></sup>
+              </span>
+                        <div class="is-size-5 publication-authors">
+                            <span class="author-block"><sup>1</sup>University of Wisconsin-Madison</span>,&nbsp;
+                            <span class="author-block"><sup>2</sup>Purdue University</span>,&nbsp;
+                            <span class="author-block"><sup>3</sup>Google</span>
+                            <span class="eql-cntrb"><small><br><sup><i
+                                    class="fa-regular fa-envelope fa-shake"></i></sup>Corresponding Author</small></span>
+                        </div>
+                    </div>
+                    <div class="column has-text-centered">
+                        <div class="publication-links">
+                <span class="link-block">
+                  <a href="https://openaccess.thecvf.com/content/CVPR2025W/WDFM-AD/html/Sheng_Talk2Traffic_Interactive_and_Editable_Traffic_Scenario_Generation_for_Autonomous_Driving_CVPRW_2025_paper.html" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                    </span>
+                    <span>arXiv</span>
+                  </a>
+                </span>
+                            <span class="link-block">
+                  <a href="https://openaccess.thecvf.com/content/CVPR2025W/WDFM-AD/html/Sheng_Talk2Traffic_Interactive_and_Editable_Traffic_Scenario_Generation_for_Autonomous_Driving_CVPRW_2025_paper.html" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                    </span>
+                    <span>Paper</span>
+                  </a>
+                </span>
+                            <span class="link-block">
+                  <a href="https://github.com/zihaosheng/Talk2Traffic" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fab fa-github"></i>
+                    </span>
+                    <span>Code</span>
+                  </a>
+                </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<section class="hero is-light is-small">
+    <div class="hero-body">
+
+        <section class="hero teaser">
+            <div class="container is-max-desktop">
+                <h2 class="subtitle" style="margin-bottom: -5px">
+                    <b> Case 1 (abstract command)</b>
+                </h2>
+                <div class="hero-body">
+                    <div class="columns" style="margin-bottom: 10px">
+                        <div class="column is-3 has-text-centered">
+                            <img src="static/images/case1-1.gif"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div class="column is-3 has-text-centered">
+                            <img src="static/images/case1-2.gif"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div class="column is-3 has-text-centered">
+                            <img src="static/images/case1-3.gif"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div class="column is-3 has-text-centered">
+                            <img src="static/images/case1-4.gif"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    </div>
+                    <h2 class="subtitle has-text-centered">
+                        <b> Language command</b>:
+                        <i>"Create a busy intersection with random weather and time."</i>
+                    </h2>
+                </div>
+            </div>
+        </section>
+
+        <section class="hero teaser">
+            <div class="container is-max-desktop">
+                <h2 class="subtitle" style="margin-bottom: -5px">
+                    <b> Case 2 (edit road layout)</b>
+                </h2>
+                <div class="hero-body">
+                    <div class="columns" style="margin-bottom: -15px">
+                        <div class="column is-6 has-text-centered">
+                            <img src="./static/images/case2-1.gif" class="responsive-img"/>
+                            </br>Initial scenario generation with <span style="color: purple;">Talk2Traffic</span>
+                        </div>
+                        <div class="column is-6 has-text-centered">
+                            <img src="./static/images/case2-2.gif" class="responsive-img"/>
+                            </br>After editing command with <span style="color: purple;">Talk2Traffic</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="hero teaser">
+            <div class="container is-max-desktop">
+                <h2 class="subtitle" style="margin-bottom: -5px">
+                    <b> Case 3 (modify car behavior)</b>
+                </h2>
+                <div class="hero-body">
+                    <div class="columns" style="margin-bottom: -15px">
+                        <div class="column is-6 has-text-centered">
+                            <img src="./static/images/case3-1.gif" class="responsive-img"/>
+                            </br>Initial scenario generation with <span style="color: purple;">Talk2Traffic</span>
+                        </div>
+                        <div class="column is-6 has-text-centered">
+                            <img src="./static/images/case3-2.gif" class="responsive-img"/>
+                            </br>After editing command with <span style="color: purple;">Talk2Traffic</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="hero teaser">
+            <div class="container is-max-desktop">
+                <h2 class="subtitle" style="margin-bottom: -5px">
+                    <b> Case 4 (modify weather and time)</b>
+                </h2>
+                <div class="hero-body">
+                    <div class="columns" style="margin-bottom: -15px">
+                        <div class="column is-6 has-text-centered">
+                            <img src="./static/images/case4-1.gif" class="responsive-img"/>
+                            </br>Initial scenario generation with <span style="color: purple;">Talk2Traffic</span>
+                        </div>
+                        <div class="column is-6 has-text-centered">
+                            <img src="./static/images/case4-2.gif" class="responsive-img"/>
+                            </br>After editing command with <span style="color: purple;">Talk2Traffic</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+</section>
+
+<!-- Abstract Section -->
+<section class="hero is-small">
+    <div class="hero-body">
+        <div class="container"
+             style="max-width: 1000px; margin: auto; padding: 20px; background-color: white; border-radius: 8px;">
+            <h2 class="title is-3" style="text-align: center;">Abstract</h2>
+            <div class="content" style="font-size: 16px; text-align: justify;">
+                Testing autonomous vehicles (AVs) requires diverse and escalating traffic scenarios, yet collecting real-world data remains prohibitively expensive.
+                While simulation-based approaches offer cost-effective alternatives, most existing methods lack sufficient support for intuitive, interactive editing of generated scenarios.
+                This paper presents <strong>Talk2Traffic</strong>, a novel framework that leverages multimodal large language models (MLLMs) to enable interactive and editable traffic scenario generation.
+                Talk2Traffic allows human users to generate various traffic scenarios through multimodal inputs (text, speech, and sketches).
+                Our approach employs an MLLM-based interpreter to extract structured representations from these inputs.
+                These representations are then translated into executable Scenic code using a retrieval-augmented generation mechanism to reduce hallucinations and ensure syntactic correctness.
+                A human feedback guidance component enables iterative refinement and editing of scenarios through natural language instructions.
+                Experiments demonstrate that Talk2Traffic outperforms state-of-the-art methods in generating challenging scenarios across multiple dimensions.
+                Qualitative evaluations further illustrate the framework can handle diverse input modalities and support scenario editing toward specific testing objectives.
+            </div>
+            <div class="image-container has-text-centered" style="max-width: 100%; margin: auto;">
+                <img src="static/images/fig1.svg" class="responsive-img"/>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<section class="hero is-small">
+    <div class="hero-body">
+        <div class="container">
+            <h2 class="title is-3" align="center">Talk2Traffic Architecture</h2>
+            <div style="text-align: center;">
+                <img src="./static/images/fig2.svg" width="990"/>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!--BibTex citation -->
+<section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+        <h2 class="title">BibTeX</h2>
+        <div style="position: relative;">
+            <button id="copyButton" style="position: absolute; top: 0; right: 0;">Copy</button>
+            <pre><code id="bibtexCode">@inproceedings{sheng2025talk2traffic,
+  title={Talk2Traffic: Interactive and Editable Traffic Scenario Generation for Autonomous Driving with Multimodal Large Language Model},
+  author={Sheng, Zihao and Huang, Zilin and Qu, Yansong and Leng, Yue and Chen, Sikai},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) Workshops},
+  year={2025}
+}</code></pre>
+        </div>
+    </div>
+</section>
+<!--End BibTex citation -->
+
+<script>
+    var copyButton = document.getElementById("copyButton");
+
+    copyButton.addEventListener("click", function () {
+        var codeElement = document.getElementById("bibtexCode");
+        var textToCopy = codeElement.textContent;
+
+        var textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+
+        copyButton.textContent = "✓ Copied!";
+
+        setTimeout(function () {
+            copyButton.textContent = "Copy";
+        }, 2000); // Reset the button text after 2 seconds (adjust as needed)
+    });
+</script>
+
+
+<footer class="footer">
+    <div class="container">
+        <div class="content has-text-centered">
+            <a class="icon-link" href="http://arxiv.org/">
+                <i class="fas fa-file-pdf"></i>
+            </a>
+            <a class="icon-link" href="https://github.com/zihaosheng/Talk2Traffic" class="external-link"
+               disabled>
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+        <div class="columns is-centered">
+            <div class="column is-8">
+                <div class="content">
+                    <p class="footer-paragraph">
+                        This page is adapted from the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies
+                        project
+                        page</a> and is licensed under a <a href="https://creativecommons.org/licenses/by-sa/4.0/">Creative
+                        Commons Attribution-ShareAlike 4.0 International License</a>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+</body>
+
+<script>
+    var btn = $('#btt-bttn');
+
+    $(window).scroll(function () {
+        if ($(window).scrollTop() > 300) {
+            btn.addClass('show');
+        } else {
+            btn.removeClass('show');
+        }
+    });
+
+    btn.on('click', function (e) {
+        e.preventDefault();
+        $('html, body').animate({scrollTop: 0}, '300');
+    });
+
+</script>
+
+</html>
