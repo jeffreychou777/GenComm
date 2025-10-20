@@ -56,7 +56,12 @@ body {
 }
 
 .publication-authors {
-    font-family: 'Google Sans', sans-serif;
+  font-family: 'Google Sans', sans-serif;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  justify-content: center;
+  align-items: baseline;
 }
 
 .publication-venue {
@@ -82,9 +87,7 @@ body {
     text-decoration: underline;
 }
 
-.author-block {
-  display: inline-block;
-}
+.author-block { display: inline; }
 
 .publication-banner img {
 }
