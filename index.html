@@ -76,6 +76,17 @@
         width: 72%;
         height: auto;
     }
+    /* Center any image reliably */
+    .img-center {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    /* Make selected images wider than default while staying responsive */
+    .img-wide {
+        width: 90%;
+        max-width: 1400px; /* prevent from getting too large on ultra-wide */
+    }
     .gradient-text {
         background: linear-gradient(90deg, rgb(68,114,196), rgb(112,173,71));
         -webkit-background-clip: text;
@@ -89,6 +100,10 @@
     @media (max-width: 768px) {
         .responsive-img {
             width: 100%;
+        }
+        .img-wide {
+            width: 100%;
+            max-width: 100%;
         }
     }
 </style>
@@ -220,7 +235,7 @@
             </ul>
         </div>
         <div class="image-container has-text-centered" style="max-width: 100%; margin: auto;">
-            <img src="static/images/intro.png" class="responsive-img" alt="intro">
+            <img src="static/images/intro.png" class="responsive-img img-wide img-center" alt="intro">
         </div>
     </div>
 </section>
@@ -232,7 +247,7 @@
     <div class="container is-max-desktop">
         <h2 class="title is-4">GenComm Framework</h2>
         <div class="image-container has-text-centered" style="max-width: 100%; margin: auto;">
-            <img src="static/images/framework.png" class="responsive-img" alt="framework"/>
+            <img src="static/images/framework.png" class="responsive-img img-wide img-center" alt="framework"/>
         </div>
     </div>
 </section>
