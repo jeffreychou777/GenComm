@@ -3,7 +3,7 @@
 [Junfei Zhou](https://github.com/jeffreychou777), [Penglin Dai](https://itsgroups.github.io/)✉, [Quanmin Wei](https://github.com/fengxueguiren), [Bingyi Liu](http://cst.whut.edu.cn/xygk/szdw/201809/t20180911_876964.shtml), [Xiao Wu](https://faculty.swjtu.edu.cn/wuxiao1/zh_CN/index.htm), [Jianping Wang](https://scholars.cityu.edu.hk/en/persons/jianwang)
 
 
-[Homepage](https://jeffreychou777.github.io/GenComm/) | [ArXiv]() | [Poster](images/poster.png)
+[Homepage](https://jeffreychou777.github.io/GenComm/) | [ArXiv](https://arxiv.org/pdf/2510.19618) | [Poster](images/poster.png)
 
 
 This repository provides a unified and integrated multi-agent collaborative perception framework, extended from [**HEAL**](https://github.com/yifanlu0227/HEAL) to support heterogeneous settings across sensors, modalities, and models.
@@ -48,11 +48,11 @@ Explore this repository to discover the ultimate experience of heterogeneous col
 
 - Additional Dataset Support
   - [x] [V2X-Real [ECCV 2024]](https://github.com/ucla-mobility/V2X-Real) (Real-World dataset with 4 agents, 2CAV & 2RSU)
-  - [] [V2V4REAL [CVPR 2023]](https://github.com/ucla-mobility/V2V4Real) (Real-world dataset with 2 agents, 1CAV & 1RSU)
+  - [ ] [V2V4REAL [CVPR 2023]](https://github.com/ucla-mobility/V2V4Real) (Real-world dataset with 2 agents, 1CAV & 1RSU)
 - Robustness Settings
   - [x] Communication delay
   - [x] Communication degradation
-  - [] LiDAR Simulation under snow and foggy weather
+  - [ ] LiDAR Simulation under snow and foggy weather
 
 - Two variants of AP computation, See details [here](https://github.com/DerrickXuNu/OpenCOOD/issues/104)
 

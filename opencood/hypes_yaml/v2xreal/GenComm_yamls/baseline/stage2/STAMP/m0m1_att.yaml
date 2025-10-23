@@ -62,7 +62,7 @@ heter:
             'anchor_rotations': [ 0, 1.57 ]
             'anchor_bottom_heights': [ -1.78 ]
             'align_center': True
-            'feature_map_stride': 2
+            'feature_map_stride': 4
             'matched_threshold': 0.6
             'unmatched_threshold': 0.45
           - 'class_name': 'pedestrian'
@@ -70,7 +70,7 @@ heter:
             'anchor_rotations': [ 0, 1.57 ]
             'anchor_bottom_heights': [ -0.6 ]
             'align_center': True
-            'feature_map_stride': 2
+            'feature_map_stride': 4
             'matched_threshold': 0.5
             'unmatched_threshold': 0.35
           - 'class_name': 'truck'
@@ -78,7 +78,7 @@ heter:
             'anchor_rotations': [ 0, 1.57 ]
             'anchor_bottom_heights': [ -1.78 ]
             'align_center': True
-            'feature_map_stride': 2
+            'feature_map_stride': 4
             'matched_threshold': 0.6
             'unmatched_threshold': 0.45
     
@@ -357,7 +357,7 @@ model:
   
       shrink_header: 
         kernal_size: [ 3 ]
-        stride: [ 1 ]
+        stride: [ 2 ]
         padding: [ 1 ]
         dim: [256 ]
         input_dim: 384 # 128 * 3
@@ -422,7 +422,7 @@ model:
   
       shrink_header: 
         kernal_size: [ 3 ]
-        stride: [ 1 ]
+        stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 256 ]
         input_dim: 384 # 128 * 3

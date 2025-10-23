@@ -129,7 +129,7 @@ preprocess:
       'anchor_rotations': [ 0, 1.57 ]
       'anchor_bottom_heights': [ -1.78 ]
       'align_center': True
-      'feature_map_stride': 2
+      'feature_map_stride': 4
       'matched_threshold': 0.6
       'unmatched_threshold': 0.45
     - 'class_name': 'pedestrian'
@@ -137,7 +137,7 @@ preprocess:
       'anchor_rotations': [ 0, 1.57 ]
       'anchor_bottom_heights': [ -0.6 ]
       'align_center': True
-      'feature_map_stride': 2
+      'feature_map_stride': 4
       'matched_threshold': 0.5
       'unmatched_threshold': 0.35
     - 'class_name': 'truck'
@@ -145,7 +145,7 @@ preprocess:
       'anchor_rotations': [ 0, 1.57 ]
       'anchor_bottom_heights': [ -1.78 ]
       'align_center': True
-      'feature_map_stride': 2
+      'feature_map_stride': 4
       'matched_threshold': 0.6
       'unmatched_threshold': 0.45
 
@@ -159,7 +159,7 @@ postprocess:
     w: 1.6
     h: 1.56
     r: &anchor_yaw [0, 90]
-    feature_stride: 2
+    feature_stride: 4
     num: &anchor_num 2
     anchor_generator_config: *anchor_generator_config
   target_args:
@@ -206,7 +206,7 @@ model:
   
       shrink_header: 
         kernal_size: [ 3 ]
-        stride: [ 1 ]
+        stride: [ 2 ]
         padding: [ 1 ]
         dim: [ 256 ]
         input_dim: 384 # 128 * 3
@@ -289,7 +289,7 @@ model:
 
       shrink_header: 
         kernal_size: [ 3 ]
-        stride: [ 2 ]
+        stride: [ 1 ]
         padding: [ 1 ]
         dim: [ 256 ]
         input_dim: 64 # 128 * 3
