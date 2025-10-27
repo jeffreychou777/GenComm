@@ -1,6 +1,6 @@
 # GenComm (**Gen**erative **Comm**unication)
 ### [NeurIPS 2025] Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism
-[Junfei Zhou](https://github.com/jeffreychou777), [Penglin Dai](https://itsgroups.github.io/)✉, [Quanmin Wei](https://github.com/fengxueguiren), [Bingyi Liu](http://cst.whut.edu.cn/xygk/szdw/201809/t20180911_876964.shtml), [Xiao Wu](https://faculty.swjtu.edu.cn/wuxiao1/zh_CN/index.htm), [Jianping Wang](https://scholars.cityu.edu.hk/en/persons/jianwang)
+[Junfei Zhou](https://jeffreychou777.github.io/), [Penglin Dai](https://itsgroups.github.io/)✉, [Quanmin Wei](https://github.com/fengxueguiren), [Bingyi Liu](http://cst.whut.edu.cn/xygk/szdw/201809/t20180911_876964.shtml), [Xiao Wu](https://faculty.swjtu.edu.cn/wuxiao1/zh_CN/index.htm), [Jianping Wang](https://scholars.cityu.edu.hk/en/persons/jianwang)
 
 
 [Homepage](https://jeffreychou777.github.io/GenComm/) | [ArXiv](https://arxiv.org/pdf/2510.19618) | [Poster](images/poster.png)
@@ -344,7 +344,12 @@ If you want to compare with HEAL's model and you use spconv 1.2.1, you can still
 
 ## Citation
 ```
-Coming soon
+@article{zhou2025pragmatic,
+  title={Pragmatic Heterogeneous Collaborative Perception via Generative Communication Mechanism},
+  author={Zhou, Junfei and Dai, Penglin and Wei, Quanmin and Liu, Bingyi and Wu, Xiao and Wang, Jianping},
+  journal={arXiv preprint arXiv:2510.19618},
+  year={2025}
+}
 ```
 
 ## Acknowledge
