@@ -149,9 +149,9 @@ model:
 
 
     enhancer:
-      in_ch: 256    
+      in_ch: 128    
     message_extractor: 
-      in_ch: 256
+      in_ch: 128
       out_ch: 2
 
     fusion_method: v2xvit 

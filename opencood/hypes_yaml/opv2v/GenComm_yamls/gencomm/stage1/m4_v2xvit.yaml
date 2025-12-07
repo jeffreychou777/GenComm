@@ -141,9 +141,9 @@ model:
         input_dim: 384 # 128 * 3
 
     enhancer:
-      in_ch: 256    
+      in_ch: 128    
     message_extractor: 
-      in_ch: 256
+      in_ch: 128
       out_ch: 2
 
     gencomm:

@@ -1,4 +1,4 @@
-name: OPV2V_Baselines_GenComm_stage1_m4_att
+name: OPV2V_Baselines_GenComm_stage1_m2_v2xvit
 root_dir: "opencood/dataset/OPV2V/train"
 validate_dir: "opencood/dataset/OPV2V/validate"
 test_dir: "opencood/dataset/OPV2V/test"
@@ -28,26 +28,26 @@ add_data_extension: ['bev_visibility.png']
 
 heter:
   assignment_path: "opencood/modality_assign/opv2v_4modality.json" 
-  ego_modality: &ego_modality "m4"
+  ego_modality: &ego_modality "m2"
   mapping_dict:
-    m1: m4
-    m2: m4
-    m3: m4
-    m4: m4
+    m1: m2
+    m2: m2
+    m3: m2
+    m4: m2
   modality_setting:
-    m4:
-      sensor_type: &sensor_type_m4 'camera'
-      core_method: &core_method_m4 "lift_splat_shoot"
+    m2:
+      sensor_type: &sensor_type_m2 'camera'
+      core_method: &core_method_m2 "lift_splat_shoot"
 
-      grid_conf: &grid_conf_m4
+      grid_conf: &grid_conf_m2
         xbound: [-51.2, 51.2, 0.4]   # Limit the range of the x direction and divide the grids
         ybound: [-51.2, 51.2, 0.4]   # Limit the range of the y direction and divide the grids
         zbound: [-10, 10, 20.0]   # Limit the range of the z direction and divide the grids
         ddiscr: [2, 50, 48]
         mode: 'LID'
-      data_aug_conf: &data_aug_conf_m4
-        resize_lim: [0.56, 0.61]
-        final_dim: [336, 448]
+      data_aug_conf: &data_aug_conf_m2
+        resize_lim: [0.65, 0.7]
+        final_dim: [384, 512]
         rot_lim: [-3.6, 3.6]
         H: 600
         W: 800
@@ -69,7 +69,7 @@ preprocess:
   # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
   core_method: 'SpVoxelPreprocessor'
   args:
-    voxel_size: [0.4, 0.4, 4] # useful
+    voxel_size: &voxel_size [0.4, 0.4, 4] # useful
     max_points_per_voxel: 1 # useless
     max_voxel_train: 1 # useless
     max_voxel_test: 1 # useless
@@ -102,28 +102,28 @@ postprocess:
 
 # model related
 model:
-  core_method: heter_model_baseline_w_gencomm_stage1
+  core_method: heter_model_baseline_w_gencomm
   args:
     ego_modality: *ego_modality
     lidar_range: *cav_lidar
 
-    m4:
-      core_method: *core_method_m4
-      sensor_type: *sensor_type_m4
+    m2:
+      core_method: *core_method_m2
+      sensor_type: *sensor_type_m2
 
       encoder_args:
         anchor_number: *anchor_num
-        grid_conf: *grid_conf_m4
-        data_aug_conf: *data_aug_conf_m4
+        grid_conf: *grid_conf_m2
+        data_aug_conf: *data_aug_conf_m2
         img_downsample: 8
-        img_features: 128
+        img_features: &img_feature 128
         use_depth_gt: false
         depth_supervision: true
-        camera_encoder: Resnet101
+        camera_encoder: EfficientNet
 
       camera_mask_args:
         cav_lidar_range: *cav_lidar
-        grid_conf: *grid_conf_m4
+        grid_conf: *grid_conf_m2
 
       backbone_args:
         layer_nums: [3, 5, 8]
@@ -141,9 +141,9 @@ model:
         input_dim: 384 # 128 * 3
 
     enhancer:
-      in_ch: 256    
+      in_ch: 128    
     message_extractor: 
-      in_ch: 256
+      in_ch: 128
       out_ch: 2
 
     gencomm:
@@ -162,9 +162,47 @@ model:
         beta_start: 0.0005
         beta_end: 0.02
         num_diffusion_timesteps: 3
-    fusion_method: att 
-    att:
-      feat_dim: 128
+    
+    gmatch: false
+    enhancer: enhancev12
+    message_extractor: message_extractorv2
+
+    fusion_method: v2xvit 
+    v2xvit:
+      transformer:
+        encoder: &encoder
+          # number of fusion blocks per encoder layer
+          num_blocks: 1
+          # number of encoder layers
+          depth: 3
+          use_roi_mask: true
+          use_RTE: &use_RTE false
+          RTE_ratio: &RTE_ratio 0 # 2 means the dt has 100ms interval while 1 means 50 ms interval
+          # agent-wise attention
+          cav_att_config: &cav_att_config
+            dim: 128
+            use_hetero: true
+            use_RTE: *use_RTE
+            RTE_ratio: *RTE_ratio
+            heads: 8
+            dim_head: 32
+            dropout: 0.3
+          # spatial-wise attention
+          pwindow_att_config: &pwindow_att_config
+            dim: 128
+            heads: [16, 8, 4]
+            dim_head: [16, 32, 64]
+            dropout: 0.3
+            window_size: [4, 8, 16]
+            relative_pos_embedding: true
+            fusion_method: 'split_attn128'
+          # feedforward condition
+          feed_forward: &feed_forward
+            mlp_dim: 128
+            dropout: 0.3
+          sttf: &sttf
+            voxel_size: *voxel_size
+            downsample_rate: 4
     in_head: 128
     
     anchor_number: *anchor_num
